@@ -1,22 +1,45 @@
 import os
 import random
 import asyncio
+import threading
 import requests
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from dotenv import load_dotenv
 load_dotenv()
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
+PORT = int(os.environ.get("PORT", 8080))
 
-# ── CONFIG — change these ─────────────────────────────────────────────────────
+# ── CONFIG ────────────────────────────────────────────────────────────────────
 CHANNEL_URL  = "https://t.me/danger_boy_op1"
 OWNER_URL    = "https://t.me/danger_boy_op"
 CHANNEL_NAME = "𒆜ﮩ٨ـﮩ٨ـ𝐉𝐎𝐈𝐍 𝐂𝐇𝐀𝐍𝐍𝐄𝐋ﮩ٨ـﮩ٨ـ𒆜"
 OWNER_NAME   = "𒆜ﮩ٨ـﮩ٨ـ𝐂𝐎𝐍𝐓𝐄𝐂𝐓 𝐎𝐖𝐍𝐄𝐑ﮩ٨ـﮩ٨ـ𒆜"
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ── Health Check Server ───────────────────────────────────────────────────────
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"Bot is running.")
+
+    def do_HEAD(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+
+    def log_message(self, format, *args):
+        pass  # Suppress access logs
+
+def run_health_server():
+    server = HTTPServer(("0.0.0.0", PORT), HealthHandler)
+    server.serve_forever()
+# ─────────────────────────────────────────────────────────────────────────────
+
 def main_keyboard():
-    """Inline keyboard attached to every bot message."""
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(CHANNEL_NAME, url=CHANNEL_URL)],
         [InlineKeyboardButton(OWNER_NAME,   url=OWNER_URL)],
@@ -106,7 +129,6 @@ ALPHA3 = {
 }
 
 def e(t):
-    """Escape text for MarkdownV2."""
     for c in r"_[]()~>#+=|{}.!-":
         t = t.replace(c, "\\" + c)
     return t
@@ -118,12 +140,9 @@ def fmt_bin(bin_number, data):
     level   = str(data.get("level",   "N/A"))
     country = str(data.get("country", "N/A"))
     alpha2  = str(data.get("alpha2",  "N/A"))
-    alpha3  = str(data.get("alpha3",  ALPHA3.get(alpha2, alpha2)))
-    numeric = str(data.get("numeric", "N/A"))
     emoji   = str(data.get("emoji",   ""))
     no_vbv  = str(data.get("no_vbv",  "TRUE"))
     novbv_icon = "\u2705" if no_vbv == "TRUE" else "\u274c"
-
     return (
         "\U0001f4b3 *BIN RESULT*\n\n"
         + "\U0001f4cc *BIN:* `" + bin_number + "`\n"
@@ -144,9 +163,9 @@ async def fetch_bin(bin_number):
         )
         if resp.status_code == 200:
             d = resp.json()
-            bank = d.get("bank", {})
+            bank    = d.get("bank", {})
             country = d.get("country", {})
-            alpha2 = country.get("alpha2", "N/A").upper() if isinstance(country, dict) else "N/A"
+            alpha2  = country.get("alpha2", "N/A").upper() if isinstance(country, dict) else "N/A"
             return {
                 "brand":   str(d.get("scheme", d.get("brand", "N/A"))).upper(),
                 "bank":    str(bank.get("name", "N/A") if isinstance(bank, dict) else bank).upper(),
@@ -165,9 +184,8 @@ async def fetch_bin(bin_number):
 
 # ── /start ────────────────────────────────────────────────────────────────────
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
+    user  = update.effective_user
     first = user.first_name if user.first_name else "there"
-
     msg = (
         f"👋 Welcome, *{e(first)}*\\!\n\n"
         "🤖 I'm all\\-in\\-one carding bot\\.\n"
@@ -256,7 +274,6 @@ async def bin_lookup(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await anim
     except asyncio.CancelledError:
         pass
-
     try:
         await loading.delete()
     except Exception:
@@ -265,14 +282,11 @@ async def bin_lookup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not data:
         await update.message.reply_text(
             "\u26a0\ufe0f BIN not found\\. Please check the number and try again\\.",
-            parse_mode="MarkdownV2",
-            reply_markup=main_keyboard()
+            parse_mode="MarkdownV2", reply_markup=main_keyboard()
         )
         return
     await update.message.reply_text(
-        fmt_bin(bin_number, data),
-        parse_mode="MarkdownV2",
-        reply_markup=main_keyboard()
+        fmt_bin(bin_number, data), parse_mode="MarkdownV2", reply_markup=main_keyboard()
     )
 
 # ── /genbin ───────────────────────────────────────────────────────────────────
@@ -280,9 +294,7 @@ async def genbin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bin_number = random.choice(list(BIN_DB.keys()))
     data = BIN_DB[bin_number]
     await update.message.reply_text(
-        fmt_bin(bin_number, data),
-        parse_mode="MarkdownV2",
-        reply_markup=main_keyboard()
+        fmt_bin(bin_number, data), parse_mode="MarkdownV2", reply_markup=main_keyboard()
     )
 
 # ── /fake ─────────────────────────────────────────────────────────────────────
@@ -294,15 +306,14 @@ async def fake(update: Update, context: ContextTypes.DEFAULT_TYPE):
     nat = context.args[0].lower() if context.args else ""
     if nat and nat not in valid_nats:
         await update.message.reply_text(
-            "\u26a0\ufe0f Unknown nationality: " + nat + "\n\n"
-            "Available: " + ", ".join(valid_nats),
+            "\u26a0\ufe0f Unknown nationality: " + nat + "\n\nAvailable: " + ", ".join(valid_nats),
             reply_markup=main_keyboard()
         )
         return
     try:
-        url = "https://randomuser.me/api/?nat=" + nat if nat else "https://randomuser.me/api/"
+        url  = "https://randomuser.me/api/?nat=" + nat if nat else "https://randomuser.me/api/"
         resp = requests.get(url, timeout=8)
-        u = resp.json()["results"][0]
+        u    = resp.json()["results"][0]
         first    = u["name"]["first"]
         last     = u["name"]["last"]
         phone    = u["phone"]
@@ -318,21 +329,20 @@ async def fake(update: Update, context: ContextTypes.DEFAULT_TYPE):
         email    = first.lower() + sep + last.lower() + num + "@" + random.choice(domains)
         msg = (
             "\U0001f464 *Fake Identity*\n\n"
-            + "\u25b8 *Name:* " + e(first + " " + last) + "\n"
-            + "\u25b8 *Email:* " + e(email) + "\n"
-            + "\u25b8 *Phone:* " + e(phone) + "\n"
-            + "\u25b8 *DOB:* " + e(dob) + "\n"
-            + "\u25b8 *Address:* " + e(street) + "\n"
-            + "\u25b8 *City:* " + e(city) + "\n"
-            + "\u25b8 *State:* " + e(state) + "\n"
-            + "\u25b8 *Country:* " + e(country) + "\n"
+            + "\u25b8 *Name:* "     + e(first + " " + last) + "\n"
+            + "\u25b8 *Email:* "    + e(email)    + "\n"
+            + "\u25b8 *Phone:* "    + e(phone)    + "\n"
+            + "\u25b8 *DOB:* "      + e(dob)      + "\n"
+            + "\u25b8 *Address:* "  + e(street)   + "\n"
+            + "\u25b8 *City:* "     + e(city)     + "\n"
+            + "\u25b8 *State:* "    + e(state)    + "\n"
+            + "\u25b8 *Country:* "  + e(country)  + "\n"
             + "\u25b8 *Postcode:* " + e(postcode)
         )
         await update.message.reply_text(msg, parse_mode="MarkdownV2", reply_markup=main_keyboard())
     except Exception as ex:
         await update.message.reply_text(
-            "\u26a0\ufe0f Error fetching identity: " + str(ex),
-            reply_markup=main_keyboard()
+            "\u26a0\ufe0f Error fetching identity: " + str(ex), reply_markup=main_keyboard()
         )
 
 # ── Luhn Algorithm ────────────────────────────────────────────────────────────
@@ -354,35 +364,25 @@ async def gen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     USAGE = (
         "\u274c *No BIN provided\\!*\n\n"
         "\u2139\ufe0f *Usage:*\n"
-        "`/gen BIN`\n"
-        "`/gen BIN EXP`\n"
-        "`/gen BIN EXP CVV`\n"
+        "`/gen BIN`\n`/gen BIN EXP`\n`/gen BIN EXP CVV`\n"
         "`/gen BIN\\|EXP\\|CVV`\n\n"
         "\U0001f4cc *Examples:*\n"
-        "`/gen 498416`\n"
-        "`/gen 49841612345`\n"
-        "`/gen 498416 05/28`\n"
-        "`/gen 498416 05/28 999`\n"
+        "`/gen 498416`\n`/gen 49841612345`\n"
+        "`/gen 498416 05/28`\n`/gen 498416 05/28 999`\n"
         "`/gen 498416\\|05\\|2028\\|999`"
     )
-
     if not context.args:
         await update.message.reply_text(USAGE, parse_mode="MarkdownV2", reply_markup=main_keyboard())
         return
 
     raw = " ".join(context.args).strip()
-
-    if "|" in raw:
-        parts = [p.strip() for p in raw.split("|")]
-    else:
-        parts = raw.split()
+    parts = [p.strip() for p in raw.split("|")] if "|" in raw else raw.split()
 
     bin_number = parts[0] if parts else ""
     if not bin_number.isdigit() or len(bin_number) < 6 or len(bin_number) > 15:
         await update.message.reply_text(USAGE, parse_mode="MarkdownV2", reply_markup=main_keyboard())
         return
 
-    # Parse EXP
     fixed_exp = None
     if len(parts) >= 2:
         exp_raw = parts[1].strip().replace("/", "")
@@ -393,66 +393,57 @@ async def gen(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif len(exp_raw) == 2 and exp_raw.isdigit():
             fixed_exp = (str(random.randint(1, 12)).zfill(2), "20" + exp_raw)
 
-    # Parse CVV
     fixed_cvv = None
     if len(parts) >= 3:
         cvv_raw = parts[2].strip()
         if cvv_raw.isdigit() and 2 <= len(cvv_raw) <= 4:
             fixed_cvv = cvv_raw
 
-    # Look up BIN info from DB (first 6 digits)
-    bin6 = bin_number[:6]
-    bin_info = BIN_DB.get(bin6)
-
-    # Generate 10 cards
+    bin_info = BIN_DB.get(bin_number[:6])
     cards = []
     for _ in range(10):
-        pad = 15 - len(bin_number)
+        pad    = 15 - len(bin_number)
         middle = "".join([str(random.randint(0, 9)) for _ in range(pad)])
         cc_num = luhn_complete(bin_number + middle)
-
         if fixed_exp:
             mm, yyyy = fixed_exp
         else:
             mm   = str(random.randint(1, 12)).zfill(2)
             yyyy = str(random.randint(2026, 2030))
-
         cvv = fixed_cvv if fixed_cvv else str(random.randint(100, 999))
         cards.append(cc_num + "|" + mm + "|" + yyyy + "|" + cvv)
 
     exp_label = (fixed_exp[0] + "/" + fixed_exp[1]) if fixed_exp else "RAND"
     cvv_label = fixed_cvv if fixed_cvv else "RAND"
 
-    # Build header with optional BIN info
     header = (
         "\U0001f4b3 *Generated CC*\n"
         "\U0001f539 BIN: `" + bin_number + "` "
         "\\| EXP: `" + exp_label + "` "
         "\\| CVV: `" + cvv_label + "`\n"
     )
-
     if bin_info:
-        brand   = e(str(bin_info.get("brand", "N/A")))
-        bank    = e(str(bin_info.get("bank",  "N/A")))
-        country = str(bin_info.get("emoji", "")) + " " + e(str(bin_info.get("country", "N/A")))
-        no_vbv  = bin_info.get("no_vbv", "TRUE")
-        vbv_icon = "\u2705" if no_vbv == "TRUE" else "\u274c"
+        vbv_icon = "\u2705" if bin_info.get("no_vbv", "TRUE") == "TRUE" else "\u274c"
         header += (
-            "\U0001f3e6 *Bank:* " + bank + "\n"
-            "\U0001f4f3 *Brand:* " + brand + "\n"
-            "\U0001f30d *Country:* " + country + "\n"
-            "\U0001f510 *NO VBV:* " + vbv_icon + "\n"
+            "\U0001f3e6 *Bank:* "    + e(str(bin_info.get("bank",    "N/A"))) + "\n"
+            "\U0001f4f3 *Brand:* "   + e(str(bin_info.get("brand",   "N/A"))) + "\n"
+            "\U0001f30d *Country:* " + str(bin_info.get("emoji", "")) + " " + e(str(bin_info.get("country", "N/A"))) + "\n"
+            "\U0001f510 *NO VBV:* "  + vbv_icon + "\n"
         )
 
     body = "\n".join("`" + cc + "`" for cc in cards)
     await update.message.reply_text(
-        header + "\n" + body,
-        parse_mode="MarkdownV2",
-        reply_markup=main_keyboard()
+        header + "\n" + body, parse_mode="MarkdownV2", reply_markup=main_keyboard()
     )
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 def main():
+    # Start health check server in background thread
+    t = threading.Thread(target=run_health_server, daemon=True)
+    t.start()
+    print(f"Health server running on port {PORT}")
+
+    # Start Telegram bot
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start",  start))
     app.add_handler(CommandHandler("help",   help_cmd))
