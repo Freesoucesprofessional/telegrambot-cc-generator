@@ -1,0 +1,1892 @@
+{
+  "456432": {
+    "brand": "VISA",
+    "bank": "SUNCORP-METWAY LTD",
+    "type": "DEBIT",
+    "level": "CLASSIC",
+    "country": "AUSTRALIA",
+    "alpha2": "AU",
+    "emoji": "🇦🇺",
+    "no_vbv": "TRUE"
+  },
+  "456430": {
+    "brand": "VISA",
+    "bank": "SUNCORP-METWAY LTD",
+    "type": "DEBIT",
+    "level": "CLASSIC",
+    "country": "AUSTRALIA",
+    "alpha2": "AU",
+    "emoji": "🇦🇺",
+    "no_vbv": "TRUE"
+  },
+  "460198": {
+    "brand": "VISA",
+    "bank": "COMMONWEALTH BANK OF AUSTRALIA",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "AUSTRALIA",
+    "alpha2": "AU",
+    "emoji": "🇦🇺",
+    "no_vbv": "TRUE"
+  },
+  "494052": {
+    "brand": "VISA",
+    "bank": "COMMONWEALTH BANK OF AUSTRALIA",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "AUSTRALIA",
+    "alpha2": "AU",
+    "emoji": "🇦🇺",
+    "no_vbv": "TRUE"
+  },
+  "456442": {
+    "brand": "VISA",
+    "bank": "COMMONWEALTH BANK OF AUSTRALIA",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "AUSTRALIA",
+    "alpha2": "AU",
+    "emoji": "🇦🇺",
+    "no_vbv": "TRUE"
+  },
+  "552638": {
+    "brand": "MASTERCARD",
+    "bank": "BENDIGO AND ADELAIDE BANK",
+    "type": "CREDIT",
+    "level": "BUSINESS",
+    "country": "AUSTRALIA",
+    "alpha2": "AU",
+    "emoji": "🇦🇺",
+    "no_vbv": "TRUE"
+  },
+  "498416": {
+    "brand": "VISA",
+    "bank": "MACQUARIE BANK LTD",
+    "type": "CREDIT",
+    "level": "SIGNATURE",
+    "country": "AUSTRALIA",
+    "alpha2": "AU",
+    "emoji": "🇦🇺",
+    "no_vbv": "TRUE"
+  },
+  "516361": {
+    "brand": "MASTERCARD",
+    "bank": "WESTPAC BANKING CORPORATION",
+    "type": "DEBIT",
+    "level": "STANDARD",
+    "country": "AUSTRALIA",
+    "alpha2": "AU",
+    "emoji": "🇦🇺",
+    "no_vbv": "TRUE"
+  },
+  "531355": {
+    "brand": "MASTERCARD",
+    "bank": "NATIONAL AUSTRALIA BANK",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "AUSTRALIA",
+    "alpha2": "AU",
+    "emoji": "🇦🇺",
+    "no_vbv": "TRUE"
+  },
+  "546827": {
+    "brand": "MASTERCARD",
+    "bank": "ANZ BANKING GROUP",
+    "type": "CREDIT",
+    "level": "STANDARD",
+    "country": "AUSTRALIA",
+    "alpha2": "AU",
+    "emoji": "🇦🇺",
+    "no_vbv": "TRUE"
+  },
+  "480145": {
+    "brand": "VISA",
+    "bank": "WESTPAC BANKING CORPORATION",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "AUSTRALIA",
+    "alpha2": "AU",
+    "emoji": "🇦🇺",
+    "no_vbv": "TRUE"
+  },
+  "512563": {
+    "brand": "MASTERCARD",
+    "bank": "COMMONWEALTH BANK OF AUSTRALIA",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "AUSTRALIA",
+    "alpha2": "AU",
+    "emoji": "🇦🇺",
+    "no_vbv": "TRUE"
+  },
+  "401754": {
+    "brand": "VISA",
+    "bank": "WACHOVIA BANK N.A.",
+    "type": "DEBIT",
+    "level": "CLASSIC",
+    "country": "UNITED STATES",
+    "alpha2": "US",
+    "emoji": "🇺🇸",
+    "no_vbv": "TRUE"
+  },
+  "401797": {
+    "brand": "VISA",
+    "bank": "CAPITAL ONE BANK",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "UNITED STATES",
+    "alpha2": "US",
+    "emoji": "🇺🇸",
+    "no_vbv": "TRUE"
+  },
+  "401804": {
+    "brand": "VISA",
+    "bank": "CITIBANK N.A.",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "UNITED STATES",
+    "alpha2": "US",
+    "emoji": "🇺🇸",
+    "no_vbv": "TRUE"
+  },
+  "401854": {
+    "brand": "VISA",
+    "bank": "CAPITAL ONE BANK",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "UNITED STATES",
+    "alpha2": "US",
+    "emoji": "🇺🇸",
+    "no_vbv": "TRUE"
+  },
+  "401868": {
+    "brand": "VISA",
+    "bank": "BANK OF AMERICA N.A.",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "UNITED STATES",
+    "alpha2": "US",
+    "emoji": "🇺🇸",
+    "no_vbv": "TRUE"
+  },
+  "401901": {
+    "brand": "VISA",
+    "bank": "BANK OF AMERICA N.A.",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "UNITED STATES",
+    "alpha2": "US",
+    "emoji": "🇺🇸",
+    "no_vbv": "TRUE"
+  },
+  "401975": {
+    "brand": "VISA",
+    "bank": "FIA CARD SERVICES N.A.",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "UNITED STATES",
+    "alpha2": "US",
+    "emoji": "🇺🇸",
+    "no_vbv": "TRUE"
+  },
+  "401981": {
+    "brand": "VISA",
+    "bank": "CITIBANK N.A.",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "UNITED STATES",
+    "alpha2": "US",
+    "emoji": "🇺🇸",
+    "no_vbv": "TRUE"
+  },
+  "402021": {
+    "brand": "VISA",
+    "bank": "MBNA AMERICA BANK N.A.",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "UNITED STATES",
+    "alpha2": "US",
+    "emoji": "🇺🇸",
+    "no_vbv": "TRUE"
+  },
+  "402297": {
+    "brand": "VISA",
+    "bank": "JPMORGAN CHASE BANK",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "UNITED STATES",
+    "alpha2": "US",
+    "emoji": "🇺🇸",
+    "no_vbv": "TRUE"
+  },
+  "414720": {
+    "brand": "VISA",
+    "bank": "JPMORGAN CHASE BANK",
+    "type": "CREDIT",
+    "level": "SIGNATURE",
+    "country": "UNITED STATES",
+    "alpha2": "US",
+    "emoji": "🇺🇸",
+    "no_vbv": "TRUE"
+  },
+  "414709": {
+    "brand": "VISA",
+    "bank": "JPMORGAN CHASE BANK",
+    "type": "DEBIT",
+    "level": "CLASSIC",
+    "country": "UNITED STATES",
+    "alpha2": "US",
+    "emoji": "🇺🇸",
+    "no_vbv": "TRUE"
+  },
+  "520424": {
+    "brand": "MASTERCARD",
+    "bank": "WELLS FARGO BANK N.A.",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "UNITED STATES",
+    "alpha2": "US",
+    "emoji": "🇺🇸",
+    "no_vbv": "TRUE"
+  },
+  "522199": {
+    "brand": "MASTERCARD",
+    "bank": "BANK OF AMERICA N.A.",
+    "type": "CREDIT",
+    "level": "WORLD",
+    "country": "UNITED STATES",
+    "alpha2": "US",
+    "emoji": "🇺🇸",
+    "no_vbv": "TRUE"
+  },
+  "541711": {
+    "brand": "MASTERCARD",
+    "bank": "CITIBANK N.A.",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "UNITED STATES",
+    "alpha2": "US",
+    "emoji": "🇺🇸",
+    "no_vbv": "TRUE"
+  },
+  "544465": {
+    "brand": "MASTERCARD",
+    "bank": "DISCOVER BANK",
+    "type": "CREDIT",
+    "level": "STANDARD",
+    "country": "UNITED STATES",
+    "alpha2": "US",
+    "emoji": "🇺🇸",
+    "no_vbv": "TRUE"
+  },
+  "376152": {
+    "brand": "AMEX",
+    "bank": "AMERICAN EXPRESS",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "UNITED STATES",
+    "alpha2": "US",
+    "emoji": "🇺🇸",
+    "no_vbv": "TRUE"
+  },
+  "378282": {
+    "brand": "AMEX",
+    "bank": "AMERICAN EXPRESS",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "UNITED STATES",
+    "alpha2": "US",
+    "emoji": "🇺🇸",
+    "no_vbv": "TRUE"
+  },
+  "414260": {
+    "brand": "VISA",
+    "bank": "AIB GROUP UK PLC",
+    "type": "CREDIT",
+    "level": "BUSINESS",
+    "country": "UNITED KINGDOM",
+    "alpha2": "GB",
+    "emoji": "🇬🇧",
+    "no_vbv": "TRUE"
+  },
+  "454434": {
+    "brand": "VISA",
+    "bank": "AIB GROUP UK PLC",
+    "type": "DEBIT",
+    "level": "CLASSIC",
+    "country": "UNITED KINGDOM",
+    "alpha2": "GB",
+    "emoji": "🇬🇧",
+    "no_vbv": "TRUE"
+  },
+  "413777": {
+    "brand": "VISA",
+    "bank": "CITIBANK INTERNATIONAL PLC",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "UNITED KINGDOM",
+    "alpha2": "GB",
+    "emoji": "🇬🇧",
+    "no_vbv": "TRUE"
+  },
+  "445984": {
+    "brand": "VISA",
+    "bank": "CITIBANK INTERNATIONAL PLC",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "UNITED KINGDOM",
+    "alpha2": "GB",
+    "emoji": "🇬🇧",
+    "no_vbv": "TRUE"
+  },
+  "486483": {
+    "brand": "VISA",
+    "bank": "HSBC BANK PLC",
+    "type": "CREDIT",
+    "level": "CORPORATE",
+    "country": "UNITED KINGDOM",
+    "alpha2": "GB",
+    "emoji": "🇬🇧",
+    "no_vbv": "TRUE"
+  },
+  "450906": {
+    "brand": "VISA",
+    "bank": "CLYDESDALE BANK PLC",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "UNITED KINGDOM",
+    "alpha2": "GB",
+    "emoji": "🇬🇧",
+    "no_vbv": "TRUE"
+  },
+  "476142": {
+    "brand": "VISA",
+    "bank": "YORKSHIRE BANK",
+    "type": "DEBIT",
+    "level": "CLASSIC",
+    "country": "UNITED KINGDOM",
+    "alpha2": "GB",
+    "emoji": "🇬🇧",
+    "no_vbv": "TRUE"
+  },
+  "401840": {
+    "brand": "VISA",
+    "bank": "WOOLWICH PLC",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "UNITED KINGDOM",
+    "alpha2": "GB",
+    "emoji": "🇬🇧",
+    "no_vbv": "TRUE"
+  },
+  "402193": {
+    "brand": "VISA",
+    "bank": "NATIONAL WESTMINSTER BANK PLC",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "UNITED KINGDOM",
+    "alpha2": "GB",
+    "emoji": "🇬🇧",
+    "no_vbv": "TRUE"
+  },
+  "531234": {
+    "brand": "MASTERCARD",
+    "bank": "LLOYDS BANK PLC",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "UNITED KINGDOM",
+    "alpha2": "GB",
+    "emoji": "🇬🇧",
+    "no_vbv": "TRUE"
+  },
+  "540198": {
+    "brand": "MASTERCARD",
+    "bank": "BARCLAYS BANK PLC",
+    "type": "CREDIT",
+    "level": "WORLD",
+    "country": "UNITED KINGDOM",
+    "alpha2": "GB",
+    "emoji": "🇬🇧",
+    "no_vbv": "TRUE"
+  },
+  "492182": {
+    "brand": "VISA",
+    "bank": "BARCLAYS BANK PLC",
+    "type": "CREDIT",
+    "level": "SIGNATURE",
+    "country": "UNITED KINGDOM",
+    "alpha2": "GB",
+    "emoji": "🇬🇧",
+    "no_vbv": "TRUE"
+  },
+  "455620": {
+    "brand": "VISA",
+    "bank": "SANTANDER CONSUMER BANK AG",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "GERMANY",
+    "alpha2": "DE",
+    "emoji": "🇩🇪",
+    "no_vbv": "TRUE"
+  },
+  "456874": {
+    "brand": "VISA",
+    "bank": "LANDESBANK BERLIN AG",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "GERMANY",
+    "alpha2": "DE",
+    "emoji": "🇩🇪",
+    "no_vbv": "TRUE"
+  },
+  "413585": {
+    "brand": "VISA",
+    "bank": "COMMERZBANK AG",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "GERMANY",
+    "alpha2": "DE",
+    "emoji": "🇩🇪",
+    "no_vbv": "TRUE"
+  },
+  "428258": {
+    "brand": "VISA",
+    "bank": "LANDESBANK BERLIN AG",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "GERMANY",
+    "alpha2": "DE",
+    "emoji": "🇩🇪",
+    "no_vbv": "TRUE"
+  },
+  "427742": {
+    "brand": "VISA",
+    "bank": "COMMERZBANK AG",
+    "type": "CREDIT",
+    "level": "BUSINESS",
+    "country": "GERMANY",
+    "alpha2": "DE",
+    "emoji": "🇩🇪",
+    "no_vbv": "TRUE"
+  },
+  "424911": {
+    "brand": "VISA",
+    "bank": "LANDESBANK SAAR",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "GERMANY",
+    "alpha2": "DE",
+    "emoji": "🇩🇪",
+    "no_vbv": "TRUE"
+  },
+  "424201": {
+    "brand": "VISA",
+    "bank": "LANDESBANK BADEN-WUERTTEMBERG",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "GERMANY",
+    "alpha2": "DE",
+    "emoji": "🇩🇪",
+    "no_vbv": "TRUE"
+  },
+  "457038": {
+    "brand": "VISA",
+    "bank": "DZ BANK AG",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "GERMANY",
+    "alpha2": "DE",
+    "emoji": "🇩🇪",
+    "no_vbv": "TRUE"
+  },
+  "425723": {
+    "brand": "VISA",
+    "bank": "BAYERISCHE LANDESBANK",
+    "type": "CREDIT",
+    "level": "CORPORATE",
+    "country": "GERMANY",
+    "alpha2": "DE",
+    "emoji": "🇩🇪",
+    "no_vbv": "TRUE"
+  },
+  "401849": {
+    "brand": "VISA",
+    "bank": "COMMERZBANK AG",
+    "type": "DEBIT",
+    "level": "CLASSIC",
+    "country": "GERMANY",
+    "alpha2": "DE",
+    "emoji": "🇩🇪",
+    "no_vbv": "TRUE"
+  },
+  "521230": {
+    "brand": "MASTERCARD",
+    "bank": "DEUTSCHE BANK AG",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "GERMANY",
+    "alpha2": "DE",
+    "emoji": "🇩🇪",
+    "no_vbv": "TRUE"
+  },
+  "542418": {
+    "brand": "MASTERCARD",
+    "bank": "SPARKASSE",
+    "type": "CREDIT",
+    "level": "STANDARD",
+    "country": "GERMANY",
+    "alpha2": "DE",
+    "emoji": "🇩🇪",
+    "no_vbv": "TRUE"
+  },
+  "450004": {
+    "brand": "VISA",
+    "bank": "CANADIAN IMPERIAL BANK OF COMMERCE",
+    "type": "CREDIT",
+    "level": "BUSINESS",
+    "country": "CANADA",
+    "alpha2": "CA",
+    "emoji": "🇨🇦",
+    "no_vbv": "TRUE"
+  },
+  "451607": {
+    "brand": "VISA",
+    "bank": "ROYAL BANK OF CANADA",
+    "type": "CREDIT",
+    "level": "BUSINESS",
+    "country": "CANADA",
+    "alpha2": "CA",
+    "emoji": "🇨🇦",
+    "no_vbv": "TRUE"
+  },
+  "408586": {
+    "brand": "VISA",
+    "bank": "TORONTO-DOMINION BANK",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "CANADA",
+    "alpha2": "CA",
+    "emoji": "🇨🇦",
+    "no_vbv": "TRUE"
+  },
+  "472409": {
+    "brand": "VISA",
+    "bank": "TORONTO-DOMINION BANK",
+    "type": "DEBIT",
+    "level": "CLASSIC",
+    "country": "CANADA",
+    "alpha2": "CA",
+    "emoji": "🇨🇦",
+    "no_vbv": "TRUE"
+  },
+  "544612": {
+    "brand": "MASTERCARD",
+    "bank": "CANADIAN TIRE BANK",
+    "type": "CREDIT",
+    "level": "STANDARD",
+    "country": "CANADA",
+    "alpha2": "CA",
+    "emoji": "🇨🇦",
+    "no_vbv": "TRUE"
+  },
+  "518127": {
+    "brand": "MASTERCARD",
+    "bank": "PRESIDENT'S CHOICE BANK",
+    "type": "CREDIT",
+    "level": "STANDARD",
+    "country": "CANADA",
+    "alpha2": "CA",
+    "emoji": "🇨🇦",
+    "no_vbv": "TRUE"
+  },
+  "400128": {
+    "brand": "VISA",
+    "bank": "CAISSE DESJARDINS DU QUEBEC",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "CANADA",
+    "alpha2": "CA",
+    "emoji": "🇨🇦",
+    "no_vbv": "TRUE"
+  },
+  "400129": {
+    "brand": "VISA",
+    "bank": "CAISSE DESJARDINS DU QUEBEC",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "CANADA",
+    "alpha2": "CA",
+    "emoji": "🇨🇦",
+    "no_vbv": "TRUE"
+  },
+  "525743": {
+    "brand": "MASTERCARD",
+    "bank": "ROYAL BANK OF CANADA",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "CANADA",
+    "alpha2": "CA",
+    "emoji": "🇨🇦",
+    "no_vbv": "TRUE"
+  },
+  "489317": {
+    "brand": "VISA",
+    "bank": "BANK OF MONTREAL",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "CANADA",
+    "alpha2": "CA",
+    "emoji": "🇨🇦",
+    "no_vbv": "TRUE"
+  },
+  "498406": {
+    "brand": "VISA",
+    "bank": "BANCO DO BRASIL S.A.",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "BRAZIL",
+    "alpha2": "BR",
+    "emoji": "🇧🇷",
+    "no_vbv": "TRUE"
+  },
+  "552072": {
+    "brand": "MASTERCARD",
+    "bank": "ITAU UNIBANCO S.A.",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "BRAZIL",
+    "alpha2": "BR",
+    "emoji": "🇧🇷",
+    "no_vbv": "TRUE"
+  },
+  "552640": {
+    "brand": "MASTERCARD",
+    "bank": "ITAU UNIBANCO S.A.",
+    "type": "CREDIT",
+    "level": "BUSINESS",
+    "country": "BRAZIL",
+    "alpha2": "BR",
+    "emoji": "🇧🇷",
+    "no_vbv": "TRUE"
+  },
+  "544859": {
+    "brand": "MASTERCARD",
+    "bank": "ITAU UNIBANCO S.A.",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "BRAZIL",
+    "alpha2": "BR",
+    "emoji": "🇧🇷",
+    "no_vbv": "TRUE"
+  },
+  "552289": {
+    "brand": "MASTERCARD",
+    "bank": "BANCO DO BRASIL S.A.",
+    "type": "CREDIT",
+    "level": "BLACK",
+    "country": "BRAZIL",
+    "alpha2": "BR",
+    "emoji": "🇧🇷",
+    "no_vbv": "TRUE"
+  },
+  "400235": {
+    "brand": "VISA",
+    "bank": "BANCO ITAU S.A.",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "BRAZIL",
+    "alpha2": "BR",
+    "emoji": "🇧🇷",
+    "no_vbv": "TRUE"
+  },
+  "400236": {
+    "brand": "VISA",
+    "bank": "CAIXA ECONOMICA FEDERAL",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "BRAZIL",
+    "alpha2": "BR",
+    "emoji": "🇧🇷",
+    "no_vbv": "TRUE"
+  },
+  "402383": {
+    "brand": "VISA",
+    "bank": "CAIXA ECONOMICA FEDERAL",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "BRAZIL",
+    "alpha2": "BR",
+    "emoji": "🇧🇷",
+    "no_vbv": "TRUE"
+  },
+  "511274": {
+    "brand": "MASTERCARD",
+    "bank": "BRADESCO S.A.",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "BRAZIL",
+    "alpha2": "BR",
+    "emoji": "🇧🇷",
+    "no_vbv": "TRUE"
+  },
+  "543168": {
+    "brand": "MASTERCARD",
+    "bank": "SANTANDER BRASIL",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "BRAZIL",
+    "alpha2": "BR",
+    "emoji": "🇧🇷",
+    "no_vbv": "TRUE"
+  },
+  "497010": {
+    "brand": "VISA",
+    "bank": "BNP PARIBAS",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "FRANCE",
+    "alpha2": "FR",
+    "emoji": "🇫🇷",
+    "no_vbv": "TRUE"
+  },
+  "497011": {
+    "brand": "VISA",
+    "bank": "BNP PARIBAS",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "FRANCE",
+    "alpha2": "FR",
+    "emoji": "🇫🇷",
+    "no_vbv": "TRUE"
+  },
+  "455441": {
+    "brand": "VISA",
+    "bank": "CREDIT AGRICOLE S.A.",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "FRANCE",
+    "alpha2": "FR",
+    "emoji": "🇫🇷",
+    "no_vbv": "TRUE"
+  },
+  "455442": {
+    "brand": "VISA",
+    "bank": "CREDIT AGRICOLE S.A.",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "FRANCE",
+    "alpha2": "FR",
+    "emoji": "🇫🇷",
+    "no_vbv": "TRUE"
+  },
+  "476600": {
+    "brand": "VISA",
+    "bank": "SOCIETE GENERALE",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "FRANCE",
+    "alpha2": "FR",
+    "emoji": "🇫🇷",
+    "no_vbv": "TRUE"
+  },
+  "476601": {
+    "brand": "VISA",
+    "bank": "SOCIETE GENERALE",
+    "type": "CREDIT",
+    "level": "PREMIER",
+    "country": "FRANCE",
+    "alpha2": "FR",
+    "emoji": "🇫🇷",
+    "no_vbv": "TRUE"
+  },
+  "510938": {
+    "brand": "MASTERCARD",
+    "bank": "LA BANQUE POSTALE",
+    "type": "CREDIT",
+    "level": "STANDARD",
+    "country": "FRANCE",
+    "alpha2": "FR",
+    "emoji": "🇫🇷",
+    "no_vbv": "TRUE"
+  },
+  "529136": {
+    "brand": "MASTERCARD",
+    "bank": "CREDIT MUTUEL",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "FRANCE",
+    "alpha2": "FR",
+    "emoji": "🇫🇷",
+    "no_vbv": "TRUE"
+  },
+  "541106": {
+    "brand": "MASTERCARD",
+    "bank": "BNP PARIBAS",
+    "type": "CREDIT",
+    "level": "WORLD",
+    "country": "FRANCE",
+    "alpha2": "FR",
+    "emoji": "🇫🇷",
+    "no_vbv": "TRUE"
+  },
+  "462264": {
+    "brand": "VISA",
+    "bank": "ING BANK N.V.",
+    "type": "DEBIT",
+    "level": "CLASSIC",
+    "country": "NETHERLANDS",
+    "alpha2": "NL",
+    "emoji": "🇳🇱",
+    "no_vbv": "TRUE"
+  },
+  "462265": {
+    "brand": "VISA",
+    "bank": "ING BANK N.V.",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "NETHERLANDS",
+    "alpha2": "NL",
+    "emoji": "🇳🇱",
+    "no_vbv": "TRUE"
+  },
+  "471700": {
+    "brand": "VISA",
+    "bank": "RABOBANK",
+    "type": "DEBIT",
+    "level": "CLASSIC",
+    "country": "NETHERLANDS",
+    "alpha2": "NL",
+    "emoji": "🇳🇱",
+    "no_vbv": "TRUE"
+  },
+  "476220": {
+    "brand": "VISA",
+    "bank": "ABN AMRO BANK N.V.",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "NETHERLANDS",
+    "alpha2": "NL",
+    "emoji": "🇳🇱",
+    "no_vbv": "TRUE"
+  },
+  "532543": {
+    "brand": "MASTERCARD",
+    "bank": "ING BANK N.V.",
+    "type": "CREDIT",
+    "level": "STANDARD",
+    "country": "NETHERLANDS",
+    "alpha2": "NL",
+    "emoji": "🇳🇱",
+    "no_vbv": "TRUE"
+  },
+  "489300": {
+    "brand": "VISA",
+    "bank": "STATE BANK OF INDIA",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "INDIA",
+    "alpha2": "IN",
+    "emoji": "🇮🇳",
+    "no_vbv": "FALSE"
+  },
+  "489301": {
+    "brand": "VISA",
+    "bank": "STATE BANK OF INDIA",
+    "type": "DEBIT",
+    "level": "CLASSIC",
+    "country": "INDIA",
+    "alpha2": "IN",
+    "emoji": "🇮🇳",
+    "no_vbv": "FALSE"
+  },
+  "461800": {
+    "brand": "VISA",
+    "bank": "HDFC BANK LTD",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "INDIA",
+    "alpha2": "IN",
+    "emoji": "🇮🇳",
+    "no_vbv": "FALSE"
+  },
+  "461801": {
+    "brand": "VISA",
+    "bank": "HDFC BANK LTD",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "INDIA",
+    "alpha2": "IN",
+    "emoji": "🇮🇳",
+    "no_vbv": "FALSE"
+  },
+  "409544": {
+    "brand": "VISA",
+    "bank": "ICICI BANK LTD",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "INDIA",
+    "alpha2": "IN",
+    "emoji": "🇮🇳",
+    "no_vbv": "FALSE"
+  },
+  "409545": {
+    "brand": "VISA",
+    "bank": "ICICI BANK LTD",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "INDIA",
+    "alpha2": "IN",
+    "emoji": "🇮🇳",
+    "no_vbv": "FALSE"
+  },
+  "524302": {
+    "brand": "MASTERCARD",
+    "bank": "AXIS BANK LTD",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "INDIA",
+    "alpha2": "IN",
+    "emoji": "🇮🇳",
+    "no_vbv": "FALSE"
+  },
+  "543952": {
+    "brand": "MASTERCARD",
+    "bank": "KOTAK MAHINDRA BANK",
+    "type": "CREDIT",
+    "level": "WORLD",
+    "country": "INDIA",
+    "alpha2": "IN",
+    "emoji": "🇮🇳",
+    "no_vbv": "FALSE"
+  },
+  "455701": {
+    "brand": "VISA",
+    "bank": "DBS BANK LTD",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "SINGAPORE",
+    "alpha2": "SG",
+    "emoji": "🇸🇬",
+    "no_vbv": "TRUE"
+  },
+  "455702": {
+    "brand": "VISA",
+    "bank": "DBS BANK LTD",
+    "type": "DEBIT",
+    "level": "CLASSIC",
+    "country": "SINGAPORE",
+    "alpha2": "SG",
+    "emoji": "🇸🇬",
+    "no_vbv": "TRUE"
+  },
+  "453965": {
+    "brand": "VISA",
+    "bank": "OCBC BANK",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "SINGAPORE",
+    "alpha2": "SG",
+    "emoji": "🇸🇬",
+    "no_vbv": "TRUE"
+  },
+  "453966": {
+    "brand": "VISA",
+    "bank": "UNITED OVERSEAS BANK",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "SINGAPORE",
+    "alpha2": "SG",
+    "emoji": "🇸🇬",
+    "no_vbv": "TRUE"
+  },
+  "512162": {
+    "brand": "MASTERCARD",
+    "bank": "DBS BANK LTD",
+    "type": "CREDIT",
+    "level": "WORLD",
+    "country": "SINGAPORE",
+    "alpha2": "SG",
+    "emoji": "🇸🇬",
+    "no_vbv": "TRUE"
+  },
+  "545502": {
+    "brand": "MASTERCARD",
+    "bank": "STANDARD CHARTERED BANK",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "SINGAPORE",
+    "alpha2": "SG",
+    "emoji": "🇸🇬",
+    "no_vbv": "TRUE"
+  },
+  "415289": {
+    "brand": "VISA",
+    "bank": "SUMITOMO MITSUI BANKING CORP",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "JAPAN",
+    "alpha2": "JP",
+    "emoji": "🇯🇵",
+    "no_vbv": "TRUE"
+  },
+  "415290": {
+    "brand": "VISA",
+    "bank": "MIZUHO BANK LTD",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "JAPAN",
+    "alpha2": "JP",
+    "emoji": "🇯🇵",
+    "no_vbv": "TRUE"
+  },
+  "446219": {
+    "brand": "VISA",
+    "bank": "MITSUBISHI UFJ FINANCIAL GROUP",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "JAPAN",
+    "alpha2": "JP",
+    "emoji": "🇯🇵",
+    "no_vbv": "TRUE"
+  },
+  "531744": {
+    "brand": "MASTERCARD",
+    "bank": "SONY BANK INC",
+    "type": "CREDIT",
+    "level": "STANDARD",
+    "country": "JAPAN",
+    "alpha2": "JP",
+    "emoji": "🇯🇵",
+    "no_vbv": "TRUE"
+  },
+  "549143": {
+    "brand": "MASTERCARD",
+    "bank": "RAKUTEN BANK LTD",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "JAPAN",
+    "alpha2": "JP",
+    "emoji": "🇯🇵",
+    "no_vbv": "TRUE"
+  },
+  "457972": {
+    "brand": "VISA",
+    "bank": "SWEDBANK AB",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "SWEDEN",
+    "alpha2": "SE",
+    "emoji": "🇸🇪",
+    "no_vbv": "TRUE"
+  },
+  "457973": {
+    "brand": "VISA",
+    "bank": "NORDEA BANK AB",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "SWEDEN",
+    "alpha2": "SE",
+    "emoji": "🇸🇪",
+    "no_vbv": "TRUE"
+  },
+  "466488": {
+    "brand": "VISA",
+    "bank": "SEB BANK",
+    "type": "DEBIT",
+    "level": "CLASSIC",
+    "country": "SWEDEN",
+    "alpha2": "SE",
+    "emoji": "🇸🇪",
+    "no_vbv": "TRUE"
+  },
+  "526048": {
+    "brand": "MASTERCARD",
+    "bank": "HANDELSBANKEN",
+    "type": "CREDIT",
+    "level": "STANDARD",
+    "country": "SWEDEN",
+    "alpha2": "SE",
+    "emoji": "🇸🇪",
+    "no_vbv": "TRUE"
+  },
+  "470730": {
+    "brand": "VISA",
+    "bank": "DNB NOR BANK ASA",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "NORWAY",
+    "alpha2": "NO",
+    "emoji": "🇳🇴",
+    "no_vbv": "TRUE"
+  },
+  "470731": {
+    "brand": "VISA",
+    "bank": "NORDEA BANK NORGE ASA",
+    "type": "DEBIT",
+    "level": "CLASSIC",
+    "country": "NORWAY",
+    "alpha2": "NO",
+    "emoji": "🇳🇴",
+    "no_vbv": "TRUE"
+  },
+  "476461": {
+    "brand": "VISA",
+    "bank": "SPAREBANKEN VEST",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "NORWAY",
+    "alpha2": "NO",
+    "emoji": "🇳🇴",
+    "no_vbv": "TRUE"
+  },
+  "535397": {
+    "brand": "MASTERCARD",
+    "bank": "DNB NOR BANK ASA",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "NORWAY",
+    "alpha2": "NO",
+    "emoji": "🇳🇴",
+    "no_vbv": "TRUE"
+  },
+  "457393": {
+    "brand": "VISA",
+    "bank": "DANSKE BANK A/S",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "DENMARK",
+    "alpha2": "DK",
+    "emoji": "🇩🇰",
+    "no_vbv": "TRUE"
+  },
+  "457394": {
+    "brand": "VISA",
+    "bank": "NORDEA BANK DENMARK",
+    "type": "DEBIT",
+    "level": "CLASSIC",
+    "country": "DENMARK",
+    "alpha2": "DK",
+    "emoji": "🇩🇰",
+    "no_vbv": "TRUE"
+  },
+  "529290": {
+    "brand": "MASTERCARD",
+    "bank": "JYSKE BANK A/S",
+    "type": "CREDIT",
+    "level": "STANDARD",
+    "country": "DENMARK",
+    "alpha2": "DK",
+    "emoji": "🇩🇰",
+    "no_vbv": "TRUE"
+  },
+  "490268": {
+    "brand": "VISA",
+    "bank": "UBS AG",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "SWITZERLAND",
+    "alpha2": "CH",
+    "emoji": "🇨🇭",
+    "no_vbv": "TRUE"
+  },
+  "490269": {
+    "brand": "VISA",
+    "bank": "CREDIT SUISSE AG",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "SWITZERLAND",
+    "alpha2": "CH",
+    "emoji": "🇨🇭",
+    "no_vbv": "TRUE"
+  },
+  "454360": {
+    "brand": "VISA",
+    "bank": "ZUERCHER KANTONALBANK",
+    "type": "DEBIT",
+    "level": "CLASSIC",
+    "country": "SWITZERLAND",
+    "alpha2": "CH",
+    "emoji": "🇨🇭",
+    "no_vbv": "TRUE"
+  },
+  "532419": {
+    "brand": "MASTERCARD",
+    "bank": "UBS AG",
+    "type": "CREDIT",
+    "level": "WORLD",
+    "country": "SWITZERLAND",
+    "alpha2": "CH",
+    "emoji": "🇨🇭",
+    "no_vbv": "TRUE"
+  },
+  "455953": {
+    "brand": "VISA",
+    "bank": "BANCO SANTANDER S.A.",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "SPAIN",
+    "alpha2": "ES",
+    "emoji": "🇪🇸",
+    "no_vbv": "TRUE"
+  },
+  "455954": {
+    "brand": "VISA",
+    "bank": "BBVA",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "SPAIN",
+    "alpha2": "ES",
+    "emoji": "🇪🇸",
+    "no_vbv": "TRUE"
+  },
+  "476910": {
+    "brand": "VISA",
+    "bank": "LA CAIXA",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "SPAIN",
+    "alpha2": "ES",
+    "emoji": "🇪🇸",
+    "no_vbv": "TRUE"
+  },
+  "519405": {
+    "brand": "MASTERCARD",
+    "bank": "BANCO SABADELL",
+    "type": "CREDIT",
+    "level": "STANDARD",
+    "country": "SPAIN",
+    "alpha2": "ES",
+    "emoji": "🇪🇸",
+    "no_vbv": "TRUE"
+  },
+  "543408": {
+    "brand": "MASTERCARD",
+    "bank": "BANCO SANTANDER S.A.",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "SPAIN",
+    "alpha2": "ES",
+    "emoji": "🇪🇸",
+    "no_vbv": "TRUE"
+  },
+  "432917": {
+    "brand": "VISA",
+    "bank": "INTESA SANPAOLO S.P.A.",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "ITALY",
+    "alpha2": "IT",
+    "emoji": "🇮🇹",
+    "no_vbv": "TRUE"
+  },
+  "432918": {
+    "brand": "VISA",
+    "bank": "UNICREDIT S.P.A.",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "ITALY",
+    "alpha2": "IT",
+    "emoji": "🇮🇹",
+    "no_vbv": "TRUE"
+  },
+  "468116": {
+    "brand": "VISA",
+    "bank": "BANCO BPM S.P.A.",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "ITALY",
+    "alpha2": "IT",
+    "emoji": "🇮🇹",
+    "no_vbv": "TRUE"
+  },
+  "535434": {
+    "brand": "MASTERCARD",
+    "bank": "INTESA SANPAOLO S.P.A.",
+    "type": "CREDIT",
+    "level": "WORLD",
+    "country": "ITALY",
+    "alpha2": "IT",
+    "emoji": "🇮🇹",
+    "no_vbv": "TRUE"
+  },
+  "415572": {
+    "brand": "VISA",
+    "bank": "ANZ BANK NEW ZEALAND",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "NEW ZEALAND",
+    "alpha2": "NZ",
+    "emoji": "🇳🇿",
+    "no_vbv": "TRUE"
+  },
+  "415573": {
+    "brand": "VISA",
+    "bank": "WESTPAC NEW ZEALAND",
+    "type": "DEBIT",
+    "level": "CLASSIC",
+    "country": "NEW ZEALAND",
+    "alpha2": "NZ",
+    "emoji": "🇳🇿",
+    "no_vbv": "TRUE"
+  },
+  "437516": {
+    "brand": "VISA",
+    "bank": "BANK OF NEW ZEALAND",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "NEW ZEALAND",
+    "alpha2": "NZ",
+    "emoji": "🇳🇿",
+    "no_vbv": "TRUE"
+  },
+  "530073": {
+    "brand": "MASTERCARD",
+    "bank": "ASB BANK LTD",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "NEW ZEALAND",
+    "alpha2": "NZ",
+    "emoji": "🇳🇿",
+    "no_vbv": "TRUE"
+  },
+  "434098": {
+    "brand": "VISA",
+    "bank": "ABSA BANK LTD",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "SOUTH AFRICA",
+    "alpha2": "ZA",
+    "emoji": "🇿🇦",
+    "no_vbv": "TRUE"
+  },
+  "434099": {
+    "brand": "VISA",
+    "bank": "FIRST NATIONAL BANK",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "SOUTH AFRICA",
+    "alpha2": "ZA",
+    "emoji": "🇿🇦",
+    "no_vbv": "TRUE"
+  },
+  "476420": {
+    "brand": "VISA",
+    "bank": "STANDARD BANK OF SOUTH AFRICA",
+    "type": "DEBIT",
+    "level": "CLASSIC",
+    "country": "SOUTH AFRICA",
+    "alpha2": "ZA",
+    "emoji": "🇿🇦",
+    "no_vbv": "TRUE"
+  },
+  "531516": {
+    "brand": "MASTERCARD",
+    "bank": "NEDBANK LTD",
+    "type": "CREDIT",
+    "level": "STANDARD",
+    "country": "SOUTH AFRICA",
+    "alpha2": "ZA",
+    "emoji": "🇿🇦",
+    "no_vbv": "TRUE"
+  },
+  "434569": {
+    "brand": "VISA",
+    "bank": "BBVA BANCOMER S.A.",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "MEXICO",
+    "alpha2": "MX",
+    "emoji": "🇲🇽",
+    "no_vbv": "TRUE"
+  },
+  "434570": {
+    "brand": "VISA",
+    "bank": "BANCO SANTANDER S.A.",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "MEXICO",
+    "alpha2": "MX",
+    "emoji": "🇲🇽",
+    "no_vbv": "TRUE"
+  },
+  "491353": {
+    "brand": "VISA",
+    "bank": "BANAMEX",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "MEXICO",
+    "alpha2": "MX",
+    "emoji": "🇲🇽",
+    "no_vbv": "TRUE"
+  },
+  "519959": {
+    "brand": "MASTERCARD",
+    "bank": "HSBC MEXICO S.A.",
+    "type": "CREDIT",
+    "level": "STANDARD",
+    "country": "MEXICO",
+    "alpha2": "MX",
+    "emoji": "🇲🇽",
+    "no_vbv": "TRUE"
+  },
+  "489740": {
+    "brand": "VISA",
+    "bank": "IS BANKASI A.S.",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "TURKEY",
+    "alpha2": "TR",
+    "emoji": "🇹🇷",
+    "no_vbv": "TRUE"
+  },
+  "489741": {
+    "brand": "VISA",
+    "bank": "GARANTI BANKASI A.S.",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "TURKEY",
+    "alpha2": "TR",
+    "emoji": "🇹🇷",
+    "no_vbv": "TRUE"
+  },
+  "518345": {
+    "brand": "MASTERCARD",
+    "bank": "AKBANK T.A.S.",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "TURKEY",
+    "alpha2": "TR",
+    "emoji": "🇹🇷",
+    "no_vbv": "TRUE"
+  },
+  "535828": {
+    "brand": "MASTERCARD",
+    "bank": "YAPI VE KREDI BANKASI A.S.",
+    "type": "CREDIT",
+    "level": "WORLD",
+    "country": "TURKEY",
+    "alpha2": "TR",
+    "emoji": "🇹🇷",
+    "no_vbv": "TRUE"
+  },
+  "437720": {
+    "brand": "VISA",
+    "bank": "BANK OF IRELAND",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "IRELAND",
+    "alpha2": "IE",
+    "emoji": "🇮🇪",
+    "no_vbv": "TRUE"
+  },
+  "437721": {
+    "brand": "VISA",
+    "bank": "ALLIED IRISH BANKS PLC",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "IRELAND",
+    "alpha2": "IE",
+    "emoji": "🇮🇪",
+    "no_vbv": "TRUE"
+  },
+  "530041": {
+    "brand": "MASTERCARD",
+    "bank": "ULSTER BANK LTD",
+    "type": "CREDIT",
+    "level": "STANDARD",
+    "country": "IRELAND",
+    "alpha2": "IE",
+    "emoji": "🇮🇪",
+    "no_vbv": "TRUE"
+  },
+  "453201": {
+    "brand": "VISA",
+    "bank": "HANG SENG BANK LTD",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "HONG KONG",
+    "alpha2": "HK",
+    "emoji": "🇭🇰",
+    "no_vbv": "TRUE"
+  },
+  "453202": {
+    "brand": "VISA",
+    "bank": "HSBC HONG KONG",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "HONG KONG",
+    "alpha2": "HK",
+    "emoji": "🇭🇰",
+    "no_vbv": "TRUE"
+  },
+  "523510": {
+    "brand": "MASTERCARD",
+    "bank": "BANK OF CHINA HONG KONG",
+    "type": "CREDIT",
+    "level": "WORLD",
+    "country": "HONG KONG",
+    "alpha2": "HK",
+    "emoji": "🇭🇰",
+    "no_vbv": "TRUE"
+  },
+  "462848": {
+    "brand": "VISA",
+    "bank": "MAYBANK",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "MALAYSIA",
+    "alpha2": "MY",
+    "emoji": "🇲🇾",
+    "no_vbv": "TRUE"
+  },
+  "462849": {
+    "brand": "VISA",
+    "bank": "CIMB BANK BHD",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "MALAYSIA",
+    "alpha2": "MY",
+    "emoji": "🇲🇾",
+    "no_vbv": "TRUE"
+  },
+  "512356": {
+    "brand": "MASTERCARD",
+    "bank": "PUBLIC BANK BHD",
+    "type": "CREDIT",
+    "level": "STANDARD",
+    "country": "MALAYSIA",
+    "alpha2": "MY",
+    "emoji": "🇲🇾",
+    "no_vbv": "TRUE"
+  },
+  "430690": {
+    "brand": "VISA",
+    "bank": "BANK LEUMI LE-ISRAEL B.M.",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "ISRAEL",
+    "alpha2": "IL",
+    "emoji": "🇮🇱",
+    "no_vbv": "TRUE"
+  },
+  "430691": {
+    "brand": "VISA",
+    "bank": "BANK HAPOALIM B.M.",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "ISRAEL",
+    "alpha2": "IL",
+    "emoji": "🇮🇱",
+    "no_vbv": "TRUE"
+  },
+  "521180": {
+    "brand": "MASTERCARD",
+    "bank": "DISCOUNT BANK LTD",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "ISRAEL",
+    "alpha2": "IL",
+    "emoji": "🇮🇱",
+    "no_vbv": "TRUE"
+  },
+  "436069": {
+    "brand": "VISA",
+    "bank": "PKO BANK POLSKI S.A.",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "POLAND",
+    "alpha2": "PL",
+    "emoji": "🇵🇱",
+    "no_vbv": "TRUE"
+  },
+  "436070": {
+    "brand": "VISA",
+    "bank": "BANK PEKAO S.A.",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "POLAND",
+    "alpha2": "PL",
+    "emoji": "🇵🇱",
+    "no_vbv": "TRUE"
+  },
+  "524682": {
+    "brand": "MASTERCARD",
+    "bank": "MBANK S.A.",
+    "type": "CREDIT",
+    "level": "STANDARD",
+    "country": "POLAND",
+    "alpha2": "PL",
+    "emoji": "🇵🇱",
+    "no_vbv": "TRUE"
+  },
+  "406552": {
+    "brand": "VISA",
+    "bank": "EMIRATES NBD",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "UNITED ARAB EMIRATES",
+    "alpha2": "AE",
+    "emoji": "🇦🇪",
+    "no_vbv": "TRUE"
+  },
+  "406553": {
+    "brand": "VISA",
+    "bank": "FIRST ABU DHABI BANK",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "UNITED ARAB EMIRATES",
+    "alpha2": "AE",
+    "emoji": "🇦🇪",
+    "no_vbv": "TRUE"
+  },
+  "526520": {
+    "brand": "MASTERCARD",
+    "bank": "MASHREQBANK PSC",
+    "type": "CREDIT",
+    "level": "WORLD",
+    "country": "UNITED ARAB EMIRATES",
+    "alpha2": "AE",
+    "emoji": "🇦🇪",
+    "no_vbv": "TRUE"
+  },
+  "455036": {
+    "brand": "VISA",
+    "bank": "AL RAJHI BANK",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "SAUDI ARABIA",
+    "alpha2": "SA",
+    "emoji": "🇸🇦",
+    "no_vbv": "TRUE"
+  },
+  "455037": {
+    "brand": "VISA",
+    "bank": "NATIONAL COMMERCIAL BANK",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "SAUDI ARABIA",
+    "alpha2": "SA",
+    "emoji": "🇸🇦",
+    "no_vbv": "TRUE"
+  },
+  "524206": {
+    "brand": "MASTERCARD",
+    "bank": "SAMBA FINANCIAL GROUP",
+    "type": "CREDIT",
+    "level": "WORLD",
+    "country": "SAUDI ARABIA",
+    "alpha2": "SA",
+    "emoji": "🇸🇦",
+    "no_vbv": "TRUE"
+  },
+  "415889": {
+    "brand": "VISA",
+    "bank": "NORDEA BANK FINLAND PLC",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "FINLAND",
+    "alpha2": "FI",
+    "emoji": "🇫🇮",
+    "no_vbv": "TRUE"
+  },
+  "415890": {
+    "brand": "VISA",
+    "bank": "OP-POHJOLA GROUP",
+    "type": "DEBIT",
+    "level": "CLASSIC",
+    "country": "FINLAND",
+    "alpha2": "FI",
+    "emoji": "🇫🇮",
+    "no_vbv": "TRUE"
+  },
+  "525630": {
+    "brand": "MASTERCARD",
+    "bank": "AKTIA BANK PLC",
+    "type": "CREDIT",
+    "level": "STANDARD",
+    "country": "FINLAND",
+    "alpha2": "FI",
+    "emoji": "🇫🇮",
+    "no_vbv": "TRUE"
+  },
+  "479250": {
+    "brand": "VISA",
+    "bank": "BNP PARIBAS FORTIS",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "BELGIUM",
+    "alpha2": "BE",
+    "emoji": "🇧🇪",
+    "no_vbv": "TRUE"
+  },
+  "479251": {
+    "brand": "VISA",
+    "bank": "KBC BANK N.V.",
+    "type": "DEBIT",
+    "level": "CLASSIC",
+    "country": "BELGIUM",
+    "alpha2": "BE",
+    "emoji": "🇧🇪",
+    "no_vbv": "TRUE"
+  },
+  "531620": {
+    "brand": "MASTERCARD",
+    "bank": "ING BELGIUM S.A.",
+    "type": "CREDIT",
+    "level": "STANDARD",
+    "country": "BELGIUM",
+    "alpha2": "BE",
+    "emoji": "🇧🇪",
+    "no_vbv": "TRUE"
+  },
+  "479710": {
+    "brand": "VISA",
+    "bank": "BANK AUSTRIA AG",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "AUSTRIA",
+    "alpha2": "AT",
+    "emoji": "🇦🇹",
+    "no_vbv": "TRUE"
+  },
+  "479711": {
+    "brand": "VISA",
+    "bank": "ERSTE BANK AG",
+    "type": "DEBIT",
+    "level": "CLASSIC",
+    "country": "AUSTRIA",
+    "alpha2": "AT",
+    "emoji": "🇦🇹",
+    "no_vbv": "TRUE"
+  },
+  "534820": {
+    "brand": "MASTERCARD",
+    "bank": "RAIFFEISEN BANK INTERNATIONAL",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "AUSTRIA",
+    "alpha2": "AT",
+    "emoji": "🇦🇹",
+    "no_vbv": "TRUE"
+  },
+  "453560": {
+    "brand": "VISA",
+    "bank": "CAIXA GERAL DE DEPOSITOS",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "PORTUGAL",
+    "alpha2": "PT",
+    "emoji": "🇵🇹",
+    "no_vbv": "TRUE"
+  },
+  "453561": {
+    "brand": "VISA",
+    "bank": "BANCO COMERCIAL PORTUGUES",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "PORTUGAL",
+    "alpha2": "PT",
+    "emoji": "🇵🇹",
+    "no_vbv": "TRUE"
+  },
+  "527036": {
+    "brand": "MASTERCARD",
+    "bank": "MILLENNIUM BCP",
+    "type": "CREDIT",
+    "level": "STANDARD",
+    "country": "PORTUGAL",
+    "alpha2": "PT",
+    "emoji": "🇵🇹",
+    "no_vbv": "TRUE"
+  },
+  "451960": {
+    "brand": "VISA",
+    "bank": "BANCO GALICIA",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "ARGENTINA",
+    "alpha2": "AR",
+    "emoji": "🇦🇷",
+    "no_vbv": "TRUE"
+  },
+  "451961": {
+    "brand": "VISA",
+    "bank": "BANCO MACRO S.A.",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "ARGENTINA",
+    "alpha2": "AR",
+    "emoji": "🇦🇷",
+    "no_vbv": "TRUE"
+  },
+  "516580": {
+    "brand": "MASTERCARD",
+    "bank": "BANCO SANTANDER RIO",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "ARGENTINA",
+    "alpha2": "AR",
+    "emoji": "🇦🇷",
+    "no_vbv": "TRUE"
+  },
+  "451200": {
+    "brand": "VISA",
+    "bank": "BANCOLOMBIA S.A.",
+    "type": "CREDIT",
+    "level": "CLASSIC",
+    "country": "COLOMBIA",
+    "alpha2": "CO",
+    "emoji": "🇨🇴",
+    "no_vbv": "TRUE"
+  },
+  "451201": {
+    "brand": "VISA",
+    "bank": "BANCO DE BOGOTA",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "COLOMBIA",
+    "alpha2": "CO",
+    "emoji": "🇨🇴",
+    "no_vbv": "TRUE"
+  },
+  "519034": {
+    "brand": "MASTERCARD",
+    "bank": "DAVIVIENDA S.A.",
+    "type": "CREDIT",
+    "level": "STANDARD",
+    "country": "COLOMBIA",
+    "alpha2": "CO",
+    "emoji": "🇨🇴",
+    "no_vbv": "TRUE"
+  },
+  "437939": {
+    "brand": "VISA",
+    "bank": "CATHAY UNITED BANK",
+    "type": "CREDIT",
+    "level": "GOLD",
+    "country": "TAIWAN",
+    "alpha2": "TW",
+    "emoji": "🇹🇼",
+    "no_vbv": "TRUE"
+  },
+  "437940": {
+    "brand": "VISA",
+    "bank": "FUBON BANK",
+    "type": "CREDIT",
+    "level": "PLATINUM",
+    "country": "TAIWAN",
+    "alpha2": "TW",
+    "emoji": "🇹🇼",
+    "no_vbv": "TRUE"
+  },
+  "524819": {
+    "brand": "MASTERCARD",
+    "bank": "CTBC BANK CO. LTD",
+    "type": "CREDIT",
+    "level": "WORLD",
+    "country": "TAIWAN",
+    "alpha2": "TW",
+    "emoji": "🇹🇼",
+    "no_vbv": "TRUE"
+  }
+}
