@@ -4,10 +4,13 @@ import random
 import asyncio
 import threading
 import re
+import hmac
+import hashlib
 import requests
 from datetime import datetime, timezone
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ForceReply
+from telegram.error import BadRequest
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, CallbackQueryHandler,
     MessageHandler, ConversationHandler, ContextTypes, filters
@@ -20,17 +23,30 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN")
 PORT      = int(os.environ.get("PORT", 8080))
 MONGO_URI = os.environ.get("MONGO_URI")
 
-# ── ADMIN CONFIG ──────────────────────────────────────────────────────────────
+# ── RAZORPAY CONFIG ──────────────────────────────────────────────────────────
+RAZORPAY_KEY_ID     = os.environ.get("RAZORPAY_KEY_ID")
+RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET")
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── ADMIN CONFIG ─────────────────────────────────────────────────────────────
 ADMIN_IDS = [1793697840]
 # ─────────────────────────────────────────────────────────────────────────────
 
-# ── CONFIG ────────────────────────────────────────────────────────────────────
+# ── CREDIT PLANS ─────────────────────────────────────────────────────────────
+CREDIT_PLANS = [
+    {"id": "plan_3",  "label": "3$  →  50 Credits",  "usd": 3,  "credits": 50},
+    {"id": "plan_5",  "label": "5$  →  100 Credits", "usd": 5,  "credits": 100},
+    {"id": "plan_10", "label": "10$ →  220 Credits",  "usd": 10, "credits": 220},
+    {"id": "plan_15", "label": "15$ →  350 Credits",  "usd": 15, "credits": 350},
+]
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── CONFIG ───────────────────────────────────────────────────────────────────
 CHANNEL_URL  = "https://t.me/danger_boy_op1"
 OWNER_URL    = "https://t.me/danger_boy_op"
 CHANNEL_NAME = "𒆜ﮩ٨ـﮩ٨ـ𝐉𝐎𝐈𝐍 𝐂𝐇𝐀𝐍𝐍𝐄𝐋ﮩ٨ـﮩ٨ـ𒆜"
-OWNER_NAME   = "𒆜ﮩ٨ـﮩ٨ـ𝐂𝐎𝐍𝐓𝐀𝐂𝐓 𝐎𝐖𝐍𝐄𝐑ﮩ٨ـﮩ٨ـ𒆜"
-# ─────────────────────────────────────────────────────────────────────────────
-
+OWNER_NAME   = "𒆜ﮩ٨ـﮩ٨ـ𝐂𝐎𝐍𝐓𝐄𝐂𝐓 𝐎𝐖𝐍𝐄𝐑ﮩ٨ـﮩ٨ـ𒆜"
+USD_TO_INR   = 95
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── MongoDB Setup ─────────────────────────────────────────────────────────────
@@ -57,27 +73,17 @@ def store_user(user_id: int, username: str = None, first_name: str = None, last_
                 "last_name":  last_name,
             },
             "$setOnInsert": {
-                "user_id":       user_id,
-                "joined_at":     datetime.now(timezone.utc),
-                "registered":    False,
-                "registered_at": None,
+                "user_id":   user_id,
+                "joined_at": datetime.now(timezone.utc),
+                "credits":   0,
             }
         },
         upsert=True
     )
 
-def register_user(user_id: int) -> bool:
+def get_all_users():
     db = get_db()
-    result = db.users.update_one(
-        {"user_id": user_id, "registered": False},
-        {"$set": {"registered": True, "registered_at": datetime.now(timezone.utc)}}
-    )
-    return result.modified_count == 1
-
-def get_all_users(registered_only: bool = False):
-    db = get_db()
-    query = {"registered": True} if registered_only else {}
-    return list(db.users.find(query, {"_id": 0}))
+    return list(db.users.find({}, {"_id": 0}))
 
 def get_all_user_ids() -> list:
     db = get_db()
@@ -86,11 +92,91 @@ def get_all_user_ids() -> list:
 def get_stats() -> dict:
     db    = get_db()
     total = db.users.count_documents({})
-    reg   = db.users.count_documents({"registered": True})
-    return {"total": total, "registered": reg}
+    return {"total": total}
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
+
+def get_credits(user_id: int) -> int:
+    db  = get_db()
+    doc = db.users.find_one({"user_id": user_id}, {"credits": 1, "_id": 0})
+    if not doc:
+        return 0
+    return doc.get("credits", 0)
+
+def create_razorpay_payment_link(amount_inr_paise: int, receipt: str, description: str) -> dict | None:
+    payload = {
+        "amount":          amount_inr_paise,
+        "currency":        "INR",
+        "description":     description,
+        "reference_id":    receipt,
+        "reminder_enable": False,
+        "notify":          {"sms": False, "email": False},
+    }
+    try:
+        print(f"[Razorpay] Creating payment link | amount={amount_inr_paise} receipt={receipt}")
+        resp = requests.post(
+            "https://api.razorpay.com/v1/payment_links",
+            auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET),
+            json=payload,
+            headers={"Content-Type": "application/json"},
+            timeout=15
+        )
+        print(f"[Razorpay] Status: {resp.status_code} | Body: {resp.text[:300]}")
+        if resp.status_code in (200, 201):
+            data = resp.json()
+            if data.get("short_url"):
+                return data
+            print("[Razorpay] No short_url in response:", data)
+        else:
+            print(f"[Razorpay] Error {resp.status_code}:", resp.text[:300])
+    except Exception as ex:
+        print("[Razorpay] Exception:", ex)
+    return None
+
+def verify_razorpay_signature(order_id: str, payment_id: str, signature: str) -> bool:
+    body     = f"{order_id}|{payment_id}"
+    expected = hmac.new(
+        RAZORPAY_KEY_SECRET.encode(),
+        body.encode(),
+        hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected, signature)
+
+def save_pending_order(user_id: int, link_id: str, plan_id: str, credits: int, short_url: str = ""):
+    db = get_db()
+    db.orders.update_one(
+        {"link_id": link_id},
+        {"$set": {
+            "link_id":    link_id,
+            "user_id":    user_id,
+            "plan_id":    plan_id,
+            "credits":    credits,
+            "short_url":  short_url,
+            "status":     "pending",
+            "created_at": datetime.now(timezone.utc),
+        }},
+        upsert=True
+    )
+
+def get_order_short_url(link_id: str) -> str:
+    db  = get_db()
+    doc = db.orders.find_one({"link_id": link_id}, {"short_url": 1, "_id": 0})
+    return (doc or {}).get("short_url", "")
+
+def fulfill_order(link_id: str, payment_id: str) -> dict | None:
+    db  = get_db()
+    doc = db.orders.find_one_and_update(
+        {"link_id": link_id, "status": "pending"},
+        {"$set": {"status": "paid", "payment_id": payment_id, "paid_at": datetime.now(timezone.utc)}},
+        return_document=True
+    )
+    if doc:
+        db.users.update_one(
+            {"user_id": doc["user_id"]},
+            {"$inc": {"credits": doc["credits"]}}
+        )
+    return doc
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Load JSON databases ───────────────────────────────────────────────────────
@@ -196,32 +282,61 @@ def run_health_server():
     HTTPServer(("0.0.0.0", PORT), HealthHandler).serve_forever()
 # ─────────────────────────────────────────────────────────────────────────────
 
-def main_keyboard():
+def main_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(CHANNEL_NAME, url=CHANNEL_URL)],
         [InlineKeyboardButton(OWNER_NAME,   url=OWNER_URL)],
     ])
+
+def payment_base_rows() -> list:
+    """Returns the two standard channel/owner button rows for payment messages."""
+    return [
+        [InlineKeyboardButton(CHANNEL_NAME, url=CHANNEL_URL)],
+        [InlineKeyboardButton(OWNER_NAME,   url=OWNER_URL)],
+    ]
+
+def payment_keyboard(extra_rows: list = None) -> InlineKeyboardMarkup:
+    """Builds a keyboard with optional action rows + always-present channel/owner rows."""
+    rows = list(extra_rows or []) + payment_base_rows()
+    return InlineKeyboardMarkup(rows)
 
 def e(t: str) -> str:
     for c in r"\_*[]()~`>#+-=|{}.!":
         t = t.replace(c, "\\" + c)
     return t
 
+def usd_to_paise(usd: float) -> int:
+    return int(usd * USD_TO_INR * 100)
+
+async def safe_edit(query, text, parse_mode=None, reply_markup=None):
+    """Edit message text, silently ignoring 'message not modified' errors."""
+    try:
+        await query.edit_message_text(text, parse_mode=parse_mode, reply_markup=reply_markup)
+    except BadRequest as ex:
+        if "not modified" in str(ex).lower():
+            pass
+        else:
+            raise
+
 # ── BIN formatter ─────────────────────────────────────────────────────────────
 def fmt_bin(bin_number: str, data: dict) -> str:
-    brand=str(data.get("brand","N/A")); bank=str(data.get("bank","N/A"))
-    typ=str(data.get("type","N/A")); level=str(data.get("level","N/A"))
-    country=str(data.get("country","N/A")); emoji=str(data.get("emoji",""))
-    no_vbv=str(data.get("no_vbv","TRUE")); novbv_icon="✅" if no_vbv=="TRUE" else "❌"
+    brand   = str(data.get("brand",   "N/A"))
+    bank    = str(data.get("bank",    "N/A"))
+    typ     = str(data.get("type",    "N/A"))
+    level   = str(data.get("level",   "N/A"))
+    country = str(data.get("country", "N/A"))
+    emoji   = str(data.get("emoji",   ""))
+    no_vbv  = str(data.get("no_vbv",  "TRUE"))
+    novbv_icon = "✅" if no_vbv == "TRUE" else "❌"
     return (
         "💳 *BIN RESULT*\n\n"
-        "📌 *BIN:* `"+bin_number+"`\n"
-        "🏦 *Bank:* "+e(bank)+"\n"
-        "📳 *Brand:* "+e(brand)+"\n"
-        "💴 *Type:* "+e(typ)+"\n"
-        "⭐ *Level:* "+e(level)+"\n"
-        "🌍 *Country:* "+emoji+" "+e(country)+"\n"
-        "🔐 *NO VBV:* "+novbv_icon+" *"+e(no_vbv)+"*"
+        "📌 *BIN:* `" + bin_number + "`\n"
+        "🏦 *Bank:* "    + e(bank)    + "\n"
+        "📳 *Brand:* "   + e(brand)   + "\n"
+        "💴 *Type:* "    + e(typ)     + "\n"
+        "⭐ *Level:* "   + e(level)   + "\n"
+        "🌍 *Country:* " + emoji + " " + e(country) + "\n"
+        "🔐 *NO VBV:* "  + novbv_icon + " *" + e(no_vbv) + "*"
     )
 
 ALPHA3 = {
@@ -237,30 +352,35 @@ ALPHA3 = {
 
 async def fetch_bin(bin_number: str) -> dict | None:
     try:
-        resp = requests.get("https://binlist.io/lookup/"+bin_number+"/",
-                            headers={"Accept":"application/json"}, timeout=8)
+        resp = requests.get(
+            "https://binlist.io/lookup/" + bin_number + "/",
+            headers={"Accept": "application/json"}, timeout=8
+        )
         if resp.status_code == 200:
-            d=resp.json(); bank=d.get("bank",{}); country=d.get("country",{})
-            alpha2=country.get("alpha2","N/A").upper() if isinstance(country,dict) else "N/A"
+            d       = resp.json()
+            bank    = d.get("bank", {})
+            country = d.get("country", {})
+            alpha2  = country.get("alpha2", "N/A").upper() if isinstance(country, dict) else "N/A"
             return {
-                "brand":   str(d.get("scheme",d.get("brand","N/A"))).upper(),
-                "bank":    str(bank.get("name","N/A") if isinstance(bank,dict) else bank).upper(),
-                "type":    str(d.get("type","N/A")).upper(),
-                "level":   str(d.get("brand",d.get("tier","N/A"))).upper(),
-                "country": str(country.get("name","N/A") if isinstance(country,dict) else country).upper(),
-                "alpha2":  alpha2, "alpha3": ALPHA3.get(alpha2,alpha2),
-                "numeric": str(country.get("numeric","N/A") if isinstance(country,dict) else "N/A"),
-                "emoji":   str(country.get("emoji","") if isinstance(country,dict) else ""),
-                "no_vbv":  "TRUE" if not d.get("prepaid",False) else "FALSE",
+                "brand":   str(d.get("scheme", d.get("brand", "N/A"))).upper(),
+                "bank":    str(bank.get("name", "N/A") if isinstance(bank, dict) else bank).upper(),
+                "type":    str(d.get("type", "N/A")).upper(),
+                "level":   str(d.get("brand", d.get("tier", "N/A"))).upper(),
+                "country": str(country.get("name", "N/A") if isinstance(country, dict) else country).upper(),
+                "alpha2":  alpha2,
+                "alpha3":  ALPHA3.get(alpha2, alpha2),
+                "numeric": str(country.get("numeric", "N/A") if isinstance(country, dict) else "N/A"),
+                "emoji":   str(country.get("emoji", "") if isinstance(country, dict) else ""),
+                "no_vbv":  "TRUE" if not d.get("prepaid", False) else "FALSE",
             }
-    except Exception as ex: print("[BIN] error:",ex)
+    except Exception as ex:
+        print("[BIN] error:", ex)
     return None
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # ── BROADCAST HELPERS ────────────────────────────────────────────────────────
 
 def build_keyboard(buttons: list):
-    """buttons = [{"text": ..., "url": ...}, ...]  — supports any number"""
     rows = [[InlineKeyboardButton(b["text"], url=b["url"])] for b in buttons if b.get("text") and b.get("url")]
     return InlineKeyboardMarkup(rows) if rows else None
 
@@ -268,37 +388,37 @@ def extract_content(message) -> dict | None:
     if message.text and not message.document:
         return {"type": "text", "text": message.text}
     elif message.photo:
-        return {"type":"photo",     "file_id":message.photo[-1].file_id, "caption":message.caption or ""}
+        return {"type": "photo",      "file_id": message.photo[-1].file_id, "caption": message.caption or ""}
     elif message.video:
-        return {"type":"video",     "file_id":message.video.file_id,     "caption":message.caption or ""}
+        return {"type": "video",      "file_id": message.video.file_id,     "caption": message.caption or ""}
     elif message.document:
-        return {"type":"document",  "file_id":message.document.file_id,  "caption":message.caption or ""}
+        return {"type": "document",   "file_id": message.document.file_id,  "caption": message.caption or ""}
     elif message.audio:
-        return {"type":"audio",     "file_id":message.audio.file_id,     "caption":message.caption or ""}
+        return {"type": "audio",      "file_id": message.audio.file_id,     "caption": message.caption or ""}
     elif message.sticker:
-        return {"type":"sticker",   "file_id":message.sticker.file_id}
+        return {"type": "sticker",    "file_id": message.sticker.file_id}
     elif message.animation:
-        return {"type":"animation", "file_id":message.animation.file_id, "caption":message.caption or ""}
+        return {"type": "animation",  "file_id": message.animation.file_id, "caption": message.caption or ""}
     elif message.voice:
-        return {"type":"voice",     "file_id":message.voice.file_id,     "caption":message.caption or ""}
+        return {"type": "voice",      "file_id": message.voice.file_id,     "caption": message.caption or ""}
     elif message.video_note:
-        return {"type":"video_note","file_id":message.video_note.file_id}
+        return {"type": "video_note", "file_id": message.video_note.file_id}
     return None
 
 async def send_content(bot, chat_id: int, content: dict, keyboard=None) -> bool:
     try:
         k   = content["type"]
-        cap = content.get("caption","")
+        cap = content.get("caption", "")
         fid = content.get("file_id")
-        if   k == "text":       await bot.send_message(   chat_id=chat_id, text=content["text"], parse_mode="Markdown", reply_markup=keyboard)
-        elif k == "photo":      await bot.send_photo(     chat_id=chat_id, photo=fid,      caption=cap, parse_mode="Markdown", reply_markup=keyboard)
-        elif k == "video":      await bot.send_video(     chat_id=chat_id, video=fid,      caption=cap, parse_mode="Markdown", reply_markup=keyboard)
-        elif k == "document":   await bot.send_document(  chat_id=chat_id, document=fid,   caption=cap, parse_mode="Markdown", reply_markup=keyboard)
-        elif k == "audio":      await bot.send_audio(     chat_id=chat_id, audio=fid,      caption=cap, parse_mode="Markdown", reply_markup=keyboard)
-        elif k == "sticker":    await bot.send_sticker(   chat_id=chat_id, sticker=fid)
-        elif k == "animation":  await bot.send_animation( chat_id=chat_id, animation=fid,  caption=cap, parse_mode="Markdown", reply_markup=keyboard)
-        elif k == "voice":      await bot.send_voice(     chat_id=chat_id, voice=fid,      caption=cap, parse_mode="Markdown", reply_markup=keyboard)
-        elif k == "video_note": await bot.send_video_note(chat_id=chat_id, video_note=fid)
+        if   k == "text":       await bot.send_message(    chat_id=chat_id, text=content["text"], parse_mode="Markdown", reply_markup=keyboard)
+        elif k == "photo":      await bot.send_photo(      chat_id=chat_id, photo=fid,      caption=cap, parse_mode="Markdown", reply_markup=keyboard)
+        elif k == "video":      await bot.send_video(      chat_id=chat_id, video=fid,      caption=cap, parse_mode="Markdown", reply_markup=keyboard)
+        elif k == "document":   await bot.send_document(   chat_id=chat_id, document=fid,   caption=cap, parse_mode="Markdown", reply_markup=keyboard)
+        elif k == "audio":      await bot.send_audio(      chat_id=chat_id, audio=fid,      caption=cap, parse_mode="Markdown", reply_markup=keyboard)
+        elif k == "sticker":    await bot.send_sticker(    chat_id=chat_id, sticker=fid)
+        elif k == "animation":  await bot.send_animation(  chat_id=chat_id, animation=fid,  caption=cap, parse_mode="Markdown", reply_markup=keyboard)
+        elif k == "voice":      await bot.send_voice(      chat_id=chat_id, voice=fid,      caption=cap, parse_mode="Markdown", reply_markup=keyboard)
+        elif k == "video_note": await bot.send_video_note( chat_id=chat_id, video_note=fid)
         return True
     except Exception:
         return False
@@ -308,7 +428,7 @@ async def send_content(bot, chat_id: int, content: dict, keyboard=None) -> bool:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 async def dot_command_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handles .admin .stats .users .regusers .broadcast"""
+    """Handles .admin .stats .users .broadcast .credits"""
     if not update.message or not update.message.text:
         return
     if not is_admin(update.effective_user.id):
@@ -322,38 +442,37 @@ async def dot_command_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     chat_id = update.effective_chat.id
 
-    # ── .admin ────────────────────────────────────────────────────────────────
+    # ── .admin ───────────────────────────────────────────────────────────────
     if cmd == ".admin":
         msg = (
             "🔐 *ADMIN PANEL*\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n\n"
             "📊 *Statistics*\n"
-            "`.stats` — Total vs registered users\n\n"
+            "`.stats` — Total user count\n\n"
             "👥 *User Management*\n"
-            "`.users` — List all users \\(latest 50\\)\n"
-            "`.regusers` — Registered users only\n\n"
+            "`.users` — List all users \\(latest 50\\)\n\n"
             "📢 *Broadcasting*\n"
             "`.broadcast` — Interactive broadcast wizard\n"
             "Supports: text, photo, video, APK, audio,\n"
             "sticker, GIF, voice \\+ *unlimited URL buttons*\n\n"
+            "💰 *Credits*\n"
+            "`.credits <id>` — Check user credits\n\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             f"🆔 *Your ID:* `{update.effective_user.id}`\n"
             "👑 *Role:* Admin"
         )
         await context.bot.send_message(chat_id=chat_id, text=msg, parse_mode="MarkdownV2")
 
-    # ── .stats ────────────────────────────────────────────────────────────────
+    # ── .stats ───────────────────────────────────────────────────────────────
     elif cmd == ".stats":
         stats = get_stats()
         msg = (
             "📊 *Bot Statistics*\n\n"
-            f"👥 *Total Users:* `{stats['total']}`\n"
-            f"✅ *Registered:* `{stats['registered']}`\n"
-            f"🔓 *Unregistered:* `{stats['total'] - stats['registered']}`"
+            f"👥 *Total Users:* `{stats['total']}`"
         )
         await context.bot.send_message(chat_id=chat_id, text=msg, parse_mode="MarkdownV2")
 
-    # ── .users ────────────────────────────────────────────────────────────────
+    # ── .users ───────────────────────────────────────────────────────────────
     elif cmd == ".users":
         rows = get_all_users()
         if not rows:
@@ -361,32 +480,33 @@ async def dot_command_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             return
         lines = ["👥 *All Users \\(latest 50\\):*\n"]
         for u in rows[-50:]:
-            uid    = u.get("user_id","?")
-            uname  = u.get("username")
-            fname  = u.get("first_name")
-            status = "✅" if u.get("registered", False) else "🔓"
-            name   = f"@{uname}" if uname else (fname or "Unknown")
-            lines.append(f"{status} `{uid}` — {e(str(name))}")
+            uid   = u.get("user_id", "?")
+            uname = u.get("username")
+            fname = u.get("first_name")
+            name  = f"@{uname}" if uname else (fname or "Unknown")
+            lines.append(f"`{uid}` — {e(str(name))}")
         await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), parse_mode="MarkdownV2")
 
-    # ── .regusers ─────────────────────────────────────────────────────────────
-    elif cmd == ".regusers":
-        rows = get_all_users(registered_only=True)
-        if not rows:
-            await context.bot.send_message(chat_id=chat_id, text="No registered users yet\\.", parse_mode="MarkdownV2")
+    # ── .credits <user_id> ───────────────────────────────────────────────────
+    elif cmd.startswith(".credits"):
+        parts = cmd.split()
+        if len(parts) != 2 or not parts[1].lstrip("-").isdigit():
+            await context.bot.send_message(chat_id=chat_id,
+                text="❌ Usage: `.credits <user_id>`", parse_mode="Markdown")
             return
-        lines = ["✅ *Registered Users \\(latest 50\\):*\n"]
-        for u in rows[-50:]:
-            uid    = u.get("user_id","?")
-            uname  = u.get("username")
-            fname  = u.get("first_name")
-            reg_at = u.get("registered_at","")
-            name   = f"@{uname}" if uname else (fname or "Unknown")
-            date   = str(reg_at)[:10] if reg_at else "N/A"
-            lines.append(f"`{uid}` — {e(str(name))} \\| {e(date)}")
-        await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), parse_mode="MarkdownV2")
+        target_id = int(parts[1])
+        bal = get_credits(target_id)
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=(
+                "💰 *Credits Balance*\n\n"
+                f"🆔 User: `{target_id}`\n"
+                f"💳 Balance: `{bal}`"
+            ),
+            parse_mode="MarkdownV2"
+        )
 
-    # ── .broadcast → start wizard ─────────────────────────────────────────────
+    # ── .broadcast ───────────────────────────────────────────────────────────
     elif cmd == ".broadcast":
         context.user_data.clear()
         context.user_data["bc_active"] = True
@@ -404,11 +524,10 @@ async def dot_command_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# ── BROADCAST WIZARD FLOW ─────────────────────────────────────────────────────
+# ── BROADCAST WIZARD FLOW ────────────────────────────────────────────────────
 # ═══════════════════════════════════════════════════════════════════════════════
 
 async def broadcast_flow(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """State-machine handler for all broadcast wizard steps."""
     if not update.message:
         return
     if not is_admin(update.effective_user.id):
@@ -419,7 +538,6 @@ async def broadcast_flow(update: Update, context: ContextTypes.DEFAULT_TYPE):
     step    = context.user_data.get("bc_step", "")
     chat_id = update.effective_chat.id
 
-    # ── .cancel anytime ───────────────────────────────────────────────────────
     if update.message.text and update.message.text.strip().lower() == ".cancel":
         context.user_data.clear()
         try: await update.message.delete()
@@ -427,7 +545,6 @@ async def broadcast_flow(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=chat_id, text="❌ *Broadcast cancelled\\.*", parse_mode="MarkdownV2")
         return
 
-    # ── Step 1: receive content ───────────────────────────────────────────────
     if step == "wait_content":
         content = extract_content(update.message)
         if not content:
@@ -443,7 +560,6 @@ async def broadcast_flow(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=ForceReply(selective=True)
         )
 
-    # ── Step 2: receive button count ─────────────────────────────────────────
     elif step == "wait_btn_count":
         txt = update.message.text.strip() if update.message.text else ""
         if not txt.isdigit():
@@ -456,7 +572,6 @@ async def broadcast_flow(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["bc_btn_total"]   = count
         context.user_data["bc_btn_current"] = 0
         context.user_data["bc_buttons"]     = []
-
         if count == 0:
             await _bc_show_confirm(update, context)
         else:
@@ -467,11 +582,10 @@ async def broadcast_flow(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=ForceReply(selective=True)
             )
 
-    # ── Step 3: receive button label ─────────────────────────────────────────
     elif step == "wait_btn_text":
         txt = update.message.text.strip() if update.message.text else ""
         if not txt:
-            await update.message.reply_text("⚠️ Button label can\'t be empty\\. Send the label text:", parse_mode="MarkdownV2")
+            await update.message.reply_text("⚠️ Button label can't be empty\\. Send the label text:", parse_mode="MarkdownV2")
             return
         context.user_data["bc_current_btn_text"] = txt
         context.user_data["bc_step"] = "wait_btn_url"
@@ -483,28 +597,21 @@ async def broadcast_flow(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=ForceReply(selective=True)
         )
 
-    # ── Step 4: receive button URL ────────────────────────────────────────────
     elif step == "wait_btn_url":
         url = update.message.text.strip() if update.message.text else ""
-
-        # Validate: must start with http and have something after the scheme
         if not re.match(r"^https?://[^\s/$.?#].[^\s]*$", url):
             await update.message.reply_text(
-                "\u26a0\ufe0f Invalid URL\\. Must start with https:// Try again:",
+                "⚠️ Invalid URL\\. Must start with https:// Try again:",
                 parse_mode="MarkdownV2"
             )
             return
-
-        # Save completed button
         context.user_data["bc_buttons"].append({
             "text": context.user_data.pop("bc_current_btn_text"),
             "url":  url
         })
         context.user_data["bc_btn_current"] += 1
-
         current = context.user_data["bc_btn_current"]
         total   = context.user_data["bc_btn_total"]
-
         if current < total:
             context.user_data["bc_step"] = "wait_btn_text"
             await update.message.reply_text(
@@ -516,7 +623,6 @@ async def broadcast_flow(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await _bc_show_confirm(update, context)
 
 async def _bc_show_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show content preview + confirm/cancel buttons."""
     content  = context.user_data["bc_content"]
     buttons  = context.user_data.get("bc_buttons", [])
     keyboard = build_keyboard(buttons)
@@ -532,9 +638,7 @@ async def _bc_show_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Here's the preview 👇",
         parse_mode="MarkdownV2"
     )
-    # Live preview to admin
     await send_content(context.bot, update.effective_chat.id, content, keyboard)
-
     await update.message.reply_text(
         "Confirm broadcast to all users?",
         reply_markup=InlineKeyboardMarkup([
@@ -546,7 +650,6 @@ async def _bc_show_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def broadcast_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handles confirm/cancel inline button."""
     query = update.callback_query
     await query.answer()
 
@@ -589,14 +692,13 @@ async def broadcast_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         context.user_data.clear()
 
-
-# ── USER COMMANDS ─────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+# ── USER COMMANDS ────────────────────────────────────────────────────────────
 # ═══════════════════════════════════════════════════════════════════════════════
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
+    user  = update.effective_user
     store_user(user_id=user.id, username=user.username, first_name=user.first_name, last_name=user.last_name)
-    register_user(user.id)
     first = user.first_name if user.first_name else "there"
     msg = (
         f"👋 Welcome, *{e(first)}*\\!\n\n"
@@ -609,6 +711,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🔍 /chkbin — Lookup a BIN\n"
         "🎲 /genbin — Random BIN info\n"
         "🪪 /fake — Fake identity\n"
+        "💰 /addcredit — Buy credits\n"
+        "👤 /info — Your profile \\& credits\n"
+        "🔜 /chk — Check \\(coming soon\\)\n"
         "❓ /help — Full command list\n"
         "━━━━━━━━━━━━━━━━━━━━━━"
     )
@@ -643,9 +748,276 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "`/fake gb` — UK identity\n"
         "`/fake in` — India identity\n\n"
         "🌍 *128 countries supported*\n"
-        "Just `/fake` to open the country picker menu"
+        "Just `/fake` to open the country picker menu\n\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "👤 *ACCOUNT*\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "`/info` — Your profile \\& credits\n"
+        "`/chk` — Coming soon 🔜"
     )
     await update.message.reply_text(msg, parse_mode="MarkdownV2", reply_markup=main_keyboard())
+
+async def info_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    db   = get_db()
+    doc  = db.users.find_one({"user_id": user.id}, {"_id": 0})
+    if not doc:
+        await update.message.reply_text(
+            "⚠️ You are not in our database\\. Please send /start first\\.",
+            parse_mode="MarkdownV2", reply_markup=main_keyboard()
+        )
+        return
+    uid     = doc.get("user_id",    "N/A")
+    uname   = doc.get("username")  or "N/A"
+    fname   = doc.get("first_name") or "N/A"
+    lname   = doc.get("last_name")  or "N/A"
+    joined  = str(doc.get("joined_at", "N/A"))[:10]
+    credits = doc.get("credits", 0)
+    msg = (
+        "👤 *Your Profile*\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"🆔 *User ID:* `{uid}`\n"
+        f"👤 *Name:* {e(fname)} {e(lname)}\n"
+        f"📛 *Username:* @{e(uname)}\n"
+        f"📅 *Joined:* `{joined}`\n"
+        f"💰 *Credits:* `{credits}`\n"
+        "━━━━━━━━━━━━━━━━━━━━━━"
+    )
+    await update.message.reply_text(msg, parse_mode="MarkdownV2", reply_markup=main_keyboard())
+
+async def chk_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = (
+        "🔜 *Coming Soon\\!*\n\n"
+        "This feature is under development\\.\n"
+        "Stay tuned for updates\\! 🚀"
+    )
+    await update.message.reply_text(msg, parse_mode="MarkdownV2", reply_markup=main_keyboard())
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ── PAYMENT FLOW ─────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def credit_plans_keyboard() -> InlineKeyboardMarkup:
+    rows = []
+    for plan in CREDIT_PLANS:
+        rows.append([InlineKeyboardButton(plan["label"], callback_data=f"buy:{plan['id']}")])
+    return payment_keyboard(rows)
+
+async def addcredit_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    bal  = get_credits(user.id)
+    msg = (
+        "💰 *Buy Credits*\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"👤 *Your Balance:* `{bal} credits`\n\n"
+        "📦 *Available Plans:*\n"
+        "┌ 3\\$ → 50 Credits\n"
+        "├ 5\\$ → 100 Credits\n"
+        "├ 10\\$ → 220 Credits ⚡ _Popular_\n"
+        "└ 15\\$ → 350 Credits 💎 _Best Value_\n\n"
+        "💳 *Payment via Razorpay*\n"
+        "_Secure, encrypted \\& instant credit delivery_\n\n"
+        "👇 *Select a plan to get started:*"
+    )
+    await update.message.reply_text(msg, parse_mode="MarkdownV2", reply_markup=credit_plans_keyboard())
+
+async def buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query   = update.callback_query
+    await query.answer()
+    data    = query.data
+    user_id = update.effective_user.id
+
+    # ── Plan selected ─────────────────────────────────────────────────────────
+    if data.startswith("buy:") and data != "buy:back":
+        plan_id = data.split(":")[1]
+        plan    = next((p for p in CREDIT_PLANS if p["id"] == plan_id), None)
+        if not plan:
+            await safe_edit(
+                query,
+                "⚠️ *Invalid Plan*\n\nThis plan no longer exists\\. Please go back and choose another\\.",
+                parse_mode="MarkdownV2",
+                reply_markup=payment_keyboard([
+                    [InlineKeyboardButton("⬅️ Back to Plans", callback_data="buy:back")],
+                ])
+            )
+            return
+
+        receipt    = f"rcpt_{user_id}_{plan_id}"
+        paise      = usd_to_paise(plan["usd"])
+        inr_amount = plan["usd"] * USD_TO_INR
+
+        await safe_edit(
+            query,
+            "⏳ *Creating your secure payment order\\.\\.\\.*\n\n_Please wait a moment\\._",
+            parse_mode="MarkdownV2",
+            reply_markup=payment_keyboard()
+        )
+
+        link = create_razorpay_payment_link(paise, receipt, f"{plan['credits']} Credits — Danger Bot")
+
+        # ── Gateway error ─────────────────────────────────────────────────────
+        if not link:
+            await safe_edit(
+                query,
+                "❌ *Payment Service Unavailable*\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                "We couldn't reach the payment gateway right now\\.\n\n"
+                "🔸 Please try again in a few minutes\n"
+                "🔸 If the issue persists, contact the owner\n\n"
+                "_Your account has not been charged\\._",
+                parse_mode="MarkdownV2",
+                reply_markup=payment_keyboard([
+                    [InlineKeyboardButton("🔄 Try Again",      callback_data=f"buy:{plan_id}")],
+                    [InlineKeyboardButton("⬅️ Back to Plans", callback_data="buy:back")],
+                ])
+            )
+            return
+
+        link_id   = link["id"]
+        short_url = link["short_url"]
+        save_pending_order(user_id, link_id, plan_id, plan["credits"], short_url)
+
+        msg = (
+            "🧾 *Order Created Successfully*\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"📦 *Plan:*      `{e(plan['label'])}`\n"
+            f"💵 *Amount:*   `${plan['usd']} USD`  \\(≈ `₹{inr_amount} INR`\\)\n"
+            f"🎁 *Credits:*   `\\+{plan['credits']}`\n"
+            f"🆔 *Order ID:* `{link_id}`\n\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "📋 *How to pay:*\n"
+            "1️⃣ Tap *Pay Now* below\n"
+            "2️⃣ Complete payment on Razorpay\n"
+            "3️⃣ Return here and tap *I Have Paid*\n\n"
+            "⚡ Credits are delivered *instantly* after verification\\.\n"
+            "_Link expires in 15 minutes\\._"
+        )
+        await safe_edit(
+            query,
+            msg,
+            parse_mode="MarkdownV2",
+            reply_markup=payment_keyboard([
+                [InlineKeyboardButton("💳 Pay Now",               url=short_url)],
+                [InlineKeyboardButton("✅ I Have Paid — Verify",  callback_data=f"verify:{link_id}")],
+                [InlineKeyboardButton("⬅️ Back to Plans",        callback_data="buy:back")],
+            ])
+        )
+
+    # ── Back to plans ─────────────────────────────────────────────────────────
+    elif data == "buy:back":
+        msg = (
+            "💰 *Buy Credits*\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "📦 *Available Plans:*\n"
+            "┌ 3\\$ → 50 Credits\n"
+            "├ 5\\$ → 100 Credits\n"
+            "├ 10\\$ → 220 Credits ⚡ _Popular_\n"
+            "└ 15\\$ → 350 Credits 💎 _Best Value_\n\n"
+            "💳 *Payment via Razorpay*\n"
+            "_Secure, encrypted \\& instant credit delivery_\n\n"
+            "👇 *Select a plan to get started:*"
+        )
+        await safe_edit(query, msg, parse_mode="MarkdownV2", reply_markup=credit_plans_keyboard())
+
+    # ── Verify payment ────────────────────────────────────────────────────────
+    elif data.startswith("verify:"):
+        link_id = data.split(":", 1)[1]
+
+        # Retrieve stored short_url for the Pay Now button fallback
+        short_url = get_order_short_url(link_id)
+
+        await safe_edit(
+            query,
+            "🔍 *Verifying Your Payment\\.\\.\\.*\n\n"
+            "_Checking with Razorpay — this takes just a second\\._",
+            parse_mode="MarkdownV2",
+            reply_markup=payment_keyboard()
+        )
+
+        link_status = ""
+        payment_id  = None
+        try:
+            resp        = requests.get(
+                f"https://api.razorpay.com/v1/payment_links/{link_id}",
+                auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET),
+                timeout=10
+            )
+            link_data   = resp.json()
+            link_status = link_data.get("status", "")
+            if link_status == "paid":
+                payments   = link_data.get("payments", [])
+                payment_id = payments[-1].get("payment_id") if payments else None
+        except Exception as ex:
+            print("[Razorpay verify]", ex)
+
+        # ── Payment not confirmed yet ─────────────────────────────────────────
+        if link_status != "paid" or not payment_id:
+            status_label = link_status.upper() if link_status else "UNKNOWN"
+            pay_row = (
+                [[InlineKeyboardButton("💳 Pay Now", url=short_url)]] if short_url else []
+            )
+            await safe_edit(
+                query,
+                "❌ *Payment Not Confirmed Yet*\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"📊 *Gateway Status:* `{status_label}`\n\n"
+                "🔸 Make sure you completed the payment fully\n"
+                "🔸 Bank transfers can take 1–2 minutes to reflect\n"
+                "🔸 Tap *Try Verify Again* after a short wait\n\n"
+                "_If you were charged but credits weren't added,\n"
+                "contact the owner with your Order ID\\._\n\n"
+                f"🆔 *Order ID:* `{link_id}`",
+                parse_mode="MarkdownV2",
+                reply_markup=payment_keyboard(
+                    pay_row + [
+                        [InlineKeyboardButton("🔄 Try Verify Again",  callback_data=f"verify:{link_id}")],
+                        [InlineKeyboardButton("⬅️ Back to Plans",    callback_data="buy:back")],
+                    ]
+                )
+            )
+            return
+
+        # ── Fulfill order ─────────────────────────────────────────────────────
+        doc = fulfill_order(link_id, payment_id)
+
+        # ── Already processed ─────────────────────────────────────────────────
+        if not doc:
+            bal = get_credits(user_id)
+            await safe_edit(
+                query,
+                "⚠️ *Order Already Processed*\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                "This payment link has already been verified and credited\\.\n\n"
+                f"💰 *Current Balance:* `{bal} credits`\n\n"
+                "_If you believe this is an error, contact the owner\\._",
+                parse_mode="MarkdownV2",
+                reply_markup=payment_keyboard([
+                    [InlineKeyboardButton("💰 Buy More Credits", callback_data="buy:back")],
+                ])
+            )
+            return
+
+        # ── Success ───────────────────────────────────────────────────────────
+        new_balance = get_credits(user_id)
+        await safe_edit(
+            query,
+            "✅ *Payment Confirmed — Credits Added\\!*\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"🎁 *Credits Added:*   `\\+{doc['credits']}`\n"
+            f"💰 *New Balance:*     `{new_balance} credits`\n"
+            f"🆔 *Payment ID:*      `{payment_id}`\n\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "🚀 You're all set\\! Start using your credits now\\.\n"
+            "Thank you for your purchase\\! 🙏",
+            parse_mode="MarkdownV2",
+            reply_markup=payment_keyboard([
+                [InlineKeyboardButton("💰 Buy More Credits", callback_data="buy:back")],
+            ])
+        )
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ── BIN COMMANDS ─────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
 
 async def bin_lookup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     usage = "❌ Invalid usage\\!\n\n✅ Usage: `/chkbin 440769`\n📌 Example: `/chkbin 521234`"
@@ -677,10 +1049,10 @@ async def genbin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if arg:
         alpha2 = arg.upper()
         if len(arg) != 2:
-            alpha2 = next((v["alpha2"] for v in BIN_DB.values() if v.get("country","").lower()==arg), None)
+            alpha2 = next((v["alpha2"] for v in BIN_DB.values() if v.get("country", "").lower() == arg), None)
         if not alpha2:
             await update.message.reply_text("⚠️ Unknown country code\\. Use ISO 2\\-letter code like `us`, `gb`, `au`", parse_mode="MarkdownV2", reply_markup=main_keyboard()); return
-        pool = {k:v for k,v in BIN_DB.items() if v.get("alpha2","").upper()==alpha2}
+        pool = {k: v for k, v in BIN_DB.items() if v.get("alpha2", "").upper() == alpha2}
         if not pool:
             await update.message.reply_text("⚠️ No BINs found for that country in the database\\.", parse_mode="MarkdownV2", reply_markup=main_keyboard()); return
     else:
@@ -688,45 +1060,68 @@ async def genbin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bin_number = random.choice(list(pool.keys()))
     await update.message.reply_text(fmt_bin(bin_number, pool[bin_number]), parse_mode="MarkdownV2", reply_markup=main_keyboard())
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# ── FAKE IDENTITY ─────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+
 def fake_country_keyboard(page: int = 0) -> InlineKeyboardMarkup:
-    items=_FAKE_PAGES[page]; rows=[]; row=[]
-    for i,(code,_) in enumerate(items):
-        flag=COUNTRY_EMOJI.get(code,"🌐"); display=COUNTRY_DISPLAY.get(code,code.upper())
+    items = _FAKE_PAGES[page]; rows = []; row = []
+    for i, (code, _) in enumerate(items):
+        flag    = COUNTRY_EMOJI.get(code, "🌐")
+        display = COUNTRY_DISPLAY.get(code, code.upper())
         row.append(InlineKeyboardButton(f"{flag} {display}", callback_data=f"fake:{code}"))
-        if len(row)==3: rows.append(row); row=[]
+        if len(row) == 3:
+            rows.append(row); row = []
     if row: rows.append(row)
-    nav=[]
-    if page>0: nav.append(InlineKeyboardButton("◀ Prev", callback_data=f"fake_page:{page-1}"))
+    nav = []
+    if page > 0:
+        nav.append(InlineKeyboardButton("◀ Prev", callback_data=f"fake_page:{page-1}"))
     nav.append(InlineKeyboardButton(f"📄 {page+1}/{len(_FAKE_PAGES)}", callback_data="fake_noop"))
-    if page<len(_FAKE_PAGES)-1: nav.append(InlineKeyboardButton("Next ▶", callback_data=f"fake_page:{page+1}"))
+    if page < len(_FAKE_PAGES) - 1:
+        nav.append(InlineKeyboardButton("Next ▶", callback_data=f"fake_page:{page+1}"))
     rows.append(nav)
     rows.append([InlineKeyboardButton("🎲 Random Country", callback_data="fake:random")])
     return InlineKeyboardMarkup(rows)
 
 def build_fake_identity(country_key: str) -> str:
-    addresses=COUNTRY_DATA.get(country_key,[])
+    addresses = COUNTRY_DATA.get(country_key, [])
     if not addresses: return None
-    addr=random.choice(addresses); country_names=NAMES_DATA.get(country_key,{})
-    first_pool=country_names.get("first") or [n for v in NAMES_DATA.values() for n in v.get("first",[])]
-    last_pool=country_names.get("last")  or [n for v in NAMES_DATA.values() for n in v.get("last",[])]
-    first=random.choice(first_pool); last=random.choice(last_pool)
-    code=next((k for k,v in COUNTRY_ALIASES.items() if v==country_key),"")
-    flag=COUNTRY_EMOJI.get(code,"🌐")
-    address1=addr.get("address1","N/A"); address2=addr.get("address2","")
-    city=addr.get("city","N/A"); state=addr.get("state","N/A")
-    postcode=addr.get("postcode","N/A"); phone=addr.get("phone","N/A")
-    msg=(f"{flag} *Fake Identity* — {country_key}\n\n▸ *Name:* `{first} {last}`\n▸ *Phone:* `{phone}`\n▸ *Address 1:* `{address1}`\n")
-    if address2: msg+=f"▸ *Address 2:* `{address2}`\n"
-    msg+=(f"▸ *City:* `{city}`\n▸ *State:* `{state}`\n▸ *Postcode:* `{postcode}`\n▸ *Country:* `{country_key}`")
+    addr          = random.choice(addresses)
+    country_names = NAMES_DATA.get(country_key, {})
+    first_pool    = country_names.get("first") or [n for v in NAMES_DATA.values() for n in v.get("first", [])]
+    last_pool     = country_names.get("last")  or [n for v in NAMES_DATA.values() for n in v.get("last",  [])]
+    first         = random.choice(first_pool)
+    last          = random.choice(last_pool)
+    code          = next((k for k, v in COUNTRY_ALIASES.items() if v == country_key), "")
+    flag          = COUNTRY_EMOJI.get(code, "🌐")
+    address1      = addr.get("address1", "N/A")
+    address2      = addr.get("address2", "")
+    city          = addr.get("city",     "N/A")
+    state         = addr.get("state",    "N/A")
+    postcode      = addr.get("postcode", "N/A")
+    phone         = addr.get("phone",    "N/A")
+    msg = (
+        f"{flag} *Fake Identity* — {country_key}\n\n"
+        f"▸ *Name:* `{first} {last}`\n"
+        f"▸ *Phone:* `{phone}`\n"
+        f"▸ *Address 1:* `{address1}`\n"
+    )
+    if address2: msg += f"▸ *Address 2:* `{address2}`\n"
+    msg += (
+        f"▸ *City:* `{city}`\n"
+        f"▸ *State:* `{state}`\n"
+        f"▸ *Postcode:* `{postcode}`\n"
+        f"▸ *Country:* `{country_key}`"
+    )
     return msg
 
 async def fake(update: Update, context: ContextTypes.DEFAULT_TYPE):
     arg = context.args[0].lower() if context.args else ""
     if arg:
-        country_key=COUNTRY_ALIASES.get(arg)
+        country_key = COUNTRY_ALIASES.get(arg)
         if not country_key:
             for k in COUNTRY_DATA:
-                if k.lower()==arg: country_key=k; break
+                if k.lower() == arg: country_key = k; break
         if not country_key or country_key not in COUNTRY_DATA:
             await update.message.reply_text("⚠️ Unknown country code\\. Use `/fake` to open the country picker\\.", parse_mode="MarkdownV2", reply_markup=main_keyboard()); return
         await update.message.reply_text(build_fake_identity(country_key), parse_mode="Markdown", reply_markup=main_keyboard())
@@ -734,75 +1129,101 @@ async def fake(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("🌍 *Select a country* to generate a fake identity:", parse_mode="MarkdownV2", reply_markup=fake_country_keyboard(0))
 
 async def fake_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query=update.callback_query; await query.answer(); data=query.data
-    if data=="fake_noop": return
+    query = update.callback_query; await query.answer(); data = query.data
+    if data == "fake_noop": return
     if data.startswith("fake_page:"):
-        page=int(data.split(":")[1])
+        page = int(data.split(":")[1])
         try: await query.edit_message_text("🌍 *Select a country* to generate a fake identity:", parse_mode="MarkdownV2", reply_markup=fake_country_keyboard(page))
         except: pass
         return
     if data.startswith("fake:"):
-        code=data.split(":")[1]
-        if code=="random":
-            country_key=random.choice(list(COUNTRY_DATA.keys()))
-            back_code=next((k for k,v in COUNTRY_ALIASES.items() if v==country_key),"")
+        code = data.split(":")[1]
+        if code == "random":
+            country_key = random.choice(list(COUNTRY_DATA.keys()))
+            back_code   = next((k for k, v in COUNTRY_ALIASES.items() if v == country_key), "")
         else:
-            country_key=COUNTRY_ALIASES.get(code); back_code=code
+            country_key = COUNTRY_ALIASES.get(code); back_code = code
         if not country_key or country_key not in COUNTRY_DATA:
             await query.answer("Country not found.", show_alert=True); return
-        msg=build_fake_identity(country_key)
-        result_kb=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🔄 Regenerate", callback_data=f"fake:{back_code}"),
+        msg       = build_fake_identity(country_key)
+        result_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔄 Regenerate",   callback_data=f"fake:{back_code}"),
              InlineKeyboardButton("🌍 Pick Country", callback_data="fake_page:0")],
-            [InlineKeyboardButton("🎲 Random", callback_data="fake:random")],
+            [InlineKeyboardButton("🎲 Random",       callback_data="fake:random")],
         ])
         try: await query.edit_message_text(msg, parse_mode="Markdown", reply_markup=result_kb)
         except: await context.bot.send_message(chat_id=query.message.chat_id, text=msg, parse_mode="Markdown", reply_markup=result_kb)
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# ── CC GENERATOR ─────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+
 def luhn_complete(prefix: str) -> str:
-    digits=[int(d) for d in str(prefix)]; digits.append(0); total=0
-    for i,d in enumerate(reversed(digits)):
-        if i%2==1: d*=2;
-        if d>9: d-=9
-        total+=d
-    return str(prefix)+str((10-(total%10))%10)
+    digits = [int(d) for d in str(prefix)]; digits.append(0); total = 0
+    for i, d in enumerate(reversed(digits)):
+        if i % 2 == 1: d *= 2
+        if d > 9: d -= 9
+        total += d
+    return str(prefix) + str((10 - (total % 10)) % 10)
 
 async def gen(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    USAGE=("❌ *No BIN provided\\!*\n\nℹ️ *Usage:*\n`/gen BIN`\n`/gen BIN EXP`\n`/gen BIN EXP CVV`\n`/gen BIN\\|EXP\\|CVV`\n\n📌 *Examples:*\n`/gen 498416`\n`/gen 49841612345`\n`/gen 498416 05/28`\n`/gen 498416 05/28 999`\n`/gen 498416\\|05\\|2028\\|999`")
+    USAGE = (
+        "❌ *No BIN provided\\!*\n\n"
+        "ℹ️ *Usage:*\n"
+        "`/gen BIN`\n"
+        "`/gen BIN EXP`\n"
+        "`/gen BIN EXP CVV`\n"
+        "`/gen BIN\\|EXP\\|CVV`\n\n"
+        "📌 *Examples:*\n"
+        "`/gen 498416`\n"
+        "`/gen 49841612345`\n"
+        "`/gen 498416 05/28`\n"
+        "`/gen 498416 05/28 999`\n"
+        "`/gen 498416\\|05\\|2028\\|999`"
+    )
     if not context.args:
         await update.message.reply_text(USAGE, parse_mode="MarkdownV2", reply_markup=main_keyboard()); return
-    raw=" ".join(context.args).strip()
-    parts=[p.strip() for p in raw.split("|")] if "|" in raw else raw.split()
-    bin_number=parts[0] if parts else ""
-    if not bin_number.isdigit() or len(bin_number)<6 or len(bin_number)>15:
+    raw    = " ".join(context.args).strip()
+    parts  = [p.strip() for p in raw.split("|")] if "|" in raw else raw.split()
+    bin_number = parts[0] if parts else ""
+    if not bin_number.isdigit() or len(bin_number) < 6 or len(bin_number) > 15:
         await update.message.reply_text(USAGE, parse_mode="MarkdownV2", reply_markup=main_keyboard()); return
-    fixed_exp=None
-    if len(parts)>=2:
-        exp_raw=parts[1].strip().replace("/","")
-        if len(exp_raw)==4 and exp_raw.isdigit(): fixed_exp=(exp_raw[:2],"20"+exp_raw[2:])
-        elif len(exp_raw)==6 and exp_raw.isdigit(): fixed_exp=(exp_raw[:2],exp_raw[2:])
-        elif len(exp_raw)==2 and exp_raw.isdigit(): fixed_exp=(str(random.randint(1,12)).zfill(2),"20"+exp_raw)
-    fixed_cvv=None
-    if len(parts)>=3:
-        cvv_raw=parts[2].strip()
-        if cvv_raw.isdigit() and 2<=len(cvv_raw)<=4: fixed_cvv=cvv_raw
-    bin_info=BIN_DB.get(bin_number[:6]); cards=[]
+    fixed_exp = None
+    if len(parts) >= 2:
+        exp_raw = parts[1].strip().replace("/", "")
+        if   len(exp_raw) == 4 and exp_raw.isdigit(): fixed_exp = (exp_raw[:2], "20" + exp_raw[2:])
+        elif len(exp_raw) == 6 and exp_raw.isdigit(): fixed_exp = (exp_raw[:2], exp_raw[2:])
+        elif len(exp_raw) == 2 and exp_raw.isdigit(): fixed_exp = (str(random.randint(1, 12)).zfill(2), "20" + exp_raw)
+    fixed_cvv = None
+    if len(parts) >= 3:
+        cvv_raw = parts[2].strip()
+        if cvv_raw.isdigit() and 2 <= len(cvv_raw) <= 4: fixed_cvv = cvv_raw
+    bin_info = BIN_DB.get(bin_number[:6]); cards = []
     for _ in range(10):
-        pad=15-len(bin_number); middle="".join([str(random.randint(0,9)) for _ in range(pad)])
-        cc_num=luhn_complete(bin_number+middle)
-        mm,yyyy=(fixed_exp if fixed_exp else (str(random.randint(1,12)).zfill(2),str(random.randint(2026,2030))))
-        cvv=fixed_cvv if fixed_cvv else str(random.randint(100,999))
-        cards.append(cc_num+"|"+mm+"|"+yyyy+"|"+cvv)
-    exp_label=(fixed_exp[0]+"/"+fixed_exp[1]) if fixed_exp else "RAND"
-    cvv_label=fixed_cvv if fixed_cvv else "RAND"
-    header=("💳 *Generated CC*\n🔹 BIN: `"+bin_number+"` \\| EXP: `"+exp_label+"` \\| CVV: `"+cvv_label+"`\n")
+        pad    = 15 - len(bin_number)
+        middle = "".join([str(random.randint(0, 9)) for _ in range(pad)])
+        cc_num = luhn_complete(bin_number + middle)
+        mm, yyyy = fixed_exp if fixed_exp else (str(random.randint(1, 12)).zfill(2), str(random.randint(2026, 2030)))
+        cvv      = fixed_cvv if fixed_cvv else str(random.randint(100, 999))
+        cards.append(cc_num + "|" + mm + "|" + yyyy + "|" + cvv)
+    exp_label = (fixed_exp[0] + "/" + fixed_exp[1]) if fixed_exp else "RAND"
+    cvv_label = fixed_cvv if fixed_cvv else "RAND"
+    header = "💳 *Generated CC*\n🔹 BIN: `" + bin_number + "` \\| EXP: `" + exp_label + "` \\| CVV: `" + cvv_label + "`\n"
     if bin_info:
-        vbv_icon="✅" if bin_info.get("no_vbv","TRUE")=="TRUE" else "❌"
-        header+=("🏦 *Bank:* "+e(str(bin_info.get("bank","N/A")))+"\n📳 *Brand:* "+e(str(bin_info.get("brand","N/A")))+"\n🌍 *Country:* "+str(bin_info.get("emoji",""))+" "+e(str(bin_info.get("country","N/A")))+"\n🔐 *NO VBV:* "+vbv_icon+"\n")
-    body="\n".join("`"+cc+"`" for cc in cards)
-    await update.message.reply_text(header+"\n"+body, parse_mode="MarkdownV2", reply_markup=main_keyboard())
+        vbv_icon = "✅" if bin_info.get("no_vbv", "TRUE") == "TRUE" else "❌"
+        header += (
+            "🏦 *Bank:* "    + e(str(bin_info.get("bank",    "N/A"))) + "\n"
+            "📳 *Brand:* "   + e(str(bin_info.get("brand",   "N/A"))) + "\n"
+            "🌍 *Country:* " + str(bin_info.get("emoji", "")) + " " + e(str(bin_info.get("country", "N/A"))) + "\n"
+            "🔐 *NO VBV:* "  + vbv_icon + "\n"
+        )
+    body = "\n".join("`" + cc + "`" for cc in cards)
+    await update.message.reply_text(header + "\n" + body, parse_mode="MarkdownV2", reply_markup=main_keyboard())
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+# ── MAIN ─────────────────────────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+
 def main():
     get_db()
     threading.Thread(target=run_health_server, daemon=True).start()
@@ -811,22 +1232,29 @@ def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     # User commands
-    app.add_handler(CommandHandler("start",  start))
-    app.add_handler(CommandHandler("help",   help_cmd))
-    app.add_handler(CommandHandler("chkbin", bin_lookup))
-    app.add_handler(CommandHandler("genbin", genbin))
-    app.add_handler(CommandHandler("fake",   fake))
-    app.add_handler(CommandHandler("gen",    gen))
+    app.add_handler(CommandHandler("start",      start))
+    app.add_handler(CommandHandler("help",       help_cmd))
+    app.add_handler(CommandHandler("info",       info_cmd))
+    app.add_handler(CommandHandler("chk",        chk_cmd))
+    app.add_handler(CommandHandler("addcredit",  addcredit_cmd))
+    app.add_handler(CommandHandler("chkbin",     bin_lookup))
+    app.add_handler(CommandHandler("genbin",     genbin))
+    app.add_handler(CommandHandler("fake",       fake))
+    app.add_handler(CommandHandler("gen",        gen))
 
     # Fake country picker callbacks
-    app.add_handler(CallbackQueryHandler(fake_callback, pattern="^fake"))
+    app.add_handler(CallbackQueryHandler(fake_callback,      pattern="^fake"))
 
     # Broadcast inline button callbacks
     app.add_handler(CallbackQueryHandler(broadcast_callback, pattern="^bc_confirm:"))
 
-    # Dot-command dispatcher (.admin .stats .users .regusers .broadcast)
+    # Credit purchase callbacks
+    app.add_handler(CallbackQueryHandler(buy_callback,       pattern="^buy:"))
+    app.add_handler(CallbackQueryHandler(buy_callback,       pattern="^verify:"))
+
+    # Dot-command dispatcher (.admin .stats .users .broadcast .credits)
     app.add_handler(MessageHandler(
-        filters.TEXT & filters.Regex(r"^\.(admin|stats|users|regusers|broadcast)$"),
+        filters.TEXT & filters.Regex(r"^\.(admin|stats|users|broadcast|credits)(\s.*)?$"),
         dot_command_handler
     ))
 
