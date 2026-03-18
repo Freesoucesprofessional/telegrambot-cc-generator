@@ -7,13 +7,14 @@ import re
 import hmac
 import hashlib
 import requests
-from datetime import datetime, timezone
+import time
+from datetime import datetime, timezone, timedelta
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ForceReply
 from telegram.error import BadRequest
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, CallbackQueryHandler,
-    MessageHandler, ConversationHandler, ContextTypes, filters
+    MessageHandler, ContextTypes, filters
 )
 from dotenv import load_dotenv
 from pymongo import MongoClient
@@ -26,11 +27,16 @@ MONGO_URI = os.environ.get("MONGO_URI")
 # ── RAZORPAY CONFIG ──────────────────────────────────────────────────────────
 RAZORPAY_KEY_ID     = os.environ.get("RAZORPAY_KEY_ID")
 RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET")
-# ─────────────────────────────────────────────────────────────────────────────
 
 # ── ADMIN CONFIG ─────────────────────────────────────────────────────────────
 ADMIN_IDS = [1793697840]
-# ─────────────────────────────────────────────────────────────────────────────
+
+# ── PAYMENT CONFIG ───────────────────────────────────────────────────────────
+PAYMENT_LINK_EXPIRY_HOURS = 24  # Links expire after 24 hours
+RATE_LIMIT_LINKS = 5  # Max links per user per time window
+RATE_LIMIT_WINDOW_MINUTES = 10  # Time window for rate limiting
+MAX_VERIFY_ATTEMPTS = 10  # Max verification attempts per order
+USD_TO_INR = 95
 
 # ── CREDIT PLANS ─────────────────────────────────────────────────────────────
 CREDIT_PLANS = [
@@ -39,15 +45,12 @@ CREDIT_PLANS = [
     {"id": "plan_10", "label": "10$ →  220 Credits",  "usd": 10, "credits": 220},
     {"id": "plan_15", "label": "15$ →  350 Credits",  "usd": 15, "credits": 350},
 ]
-# ─────────────────────────────────────────────────────────────────────────────
 
 # ── CONFIG ───────────────────────────────────────────────────────────────────
 CHANNEL_URL  = "https://t.me/danger_boy_op1"
 OWNER_URL    = "https://t.me/danger_boy_op"
 CHANNEL_NAME = "𒆜ﮩ٨ـﮩ٨ـ𝐉𝐎𝐈𝐍 𝐂𝐇𝐀𝐍𝐍𝐄𝐋ﮩ٨ـﮩ٨ـ𒆜"
 OWNER_NAME   = "𒆜ﮩ٨ـﮩ٨ـ𝐂𝐎𝐍𝐓𝐀𝐂𝐓 𝐎𝐖𝐍𝐄𝐑ﮩ٨ـﮩ٨ـ𒆜"
-USD_TO_INR   = 95
-# ─────────────────────────────────────────────────────────────────────────────
 
 # ── MongoDB Setup ─────────────────────────────────────────────────────────────
 _mongo_client = None
@@ -56,10 +59,21 @@ _mongo_db     = None
 def get_db():
     global _mongo_client, _mongo_db
     if _mongo_client is None:
-        _mongo_client = MongoClient(MONGO_URI)
+        _mongo_client = MongoClient(
+            MONGO_URI,
+            maxPoolSize=50,
+            minPoolSize=10,
+            serverSelectionTimeoutMS=5000,
+            connectTimeoutMS=10000,
+            retryWrites=True,
+            retryReads=True
+        )
         _mongo_db     = _mongo_client["telegram_bot"]
         _mongo_db.users.create_index("user_id", unique=True)
-        print("[✓] MongoDB connected")
+        _mongo_db.orders.create_index("link_id", unique=True, sparse=True)
+        _mongo_db.orders.create_index([("user_id", 1), ("status", 1), ("created_at", -1)])
+        _mongo_db.orders.create_index([("status", 1), ("expired_at", 1)])  # For cleanup
+        print("[✓] MongoDB connected with connection pooling")
     return _mongo_db
 
 def store_user(user_id: int, username: str = None, first_name: str = None, last_name: str = None):
@@ -92,7 +106,13 @@ def get_all_user_ids() -> list:
 def get_stats() -> dict:
     db    = get_db()
     total = db.users.count_documents({})
-    return {"total": total}
+    pending_orders = db.orders.count_documents({"status": "pending"})
+    paid_orders = db.orders.count_documents({"status": "paid"})
+    return {
+        "total": total,
+        "pending_orders": pending_orders,
+        "paid_orders": paid_orders
+    }
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
@@ -104,46 +124,27 @@ def get_credits(user_id: int) -> int:
         return 0
     return doc.get("credits", 0)
 
-def create_razorpay_payment_link(amount_inr_paise: int, receipt: str, description: str) -> dict | None:
-    payload = {
-        "amount":          amount_inr_paise,
-        "currency":        "INR",
-        "description":     description,
-        "reference_id":    receipt,
-        "reminder_enable": False,
-        "notify":          {"sms": False, "email": False},
-    }
-    try:
-        print(f"[Razorpay] Creating payment link | amount={amount_inr_paise} receipt={receipt}")
-        resp = requests.post(
-            "https://api.razorpay.com/v1/payment_links",
-            auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET),
-            json=payload,
-            headers={"Content-Type": "application/json"},
-            timeout=15
-        )
-        print(f"[Razorpay] Status: {resp.status_code} | Body: {resp.text[:300]}")
-        if resp.status_code in (200, 201):
-            data = resp.json()
-            if data.get("short_url"):
-                return data
-            print("[Razorpay] No short_url in response:", data)
-        else:
-            print(f"[Razorpay] Error {resp.status_code}:", resp.text[:300])
-    except Exception as ex:
-        print("[Razorpay] Exception:", ex)
-    return None
+def check_rate_limit(user_id: int) -> bool:
+    """Check if user has exceeded rate limit for creating payment links."""
+    db = get_db()
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=RATE_LIMIT_WINDOW_MINUTES)
+    recent_count = db.orders.count_documents({
+        "user_id": user_id,
+        "created_at": {"$gt": cutoff}
+    })
+    return recent_count >= RATE_LIMIT_LINKS
 
-def verify_razorpay_signature(order_id: str, payment_id: str, signature: str) -> bool:
-    body     = f"{order_id}|{payment_id}"
-    expected = hmac.new(
-        RAZORPAY_KEY_SECRET.encode(),
-        body.encode(),
-        hashlib.sha256
-    ).hexdigest()
-    return hmac.compare_digest(expected, signature)
+# ── ORDER HELPERS ─────────────────────────────────────────────────────────────
 
-def save_pending_order(user_id: int, link_id: str, plan_id: str, credits: int, short_url: str = ""):
+def get_pending_order(user_id: int, plan_id: str) -> dict | None:
+    """Return the most recent pending order for this user+plan, or None."""
+    db = get_db()
+    return db.orders.find_one(
+        {"user_id": user_id, "plan_id": plan_id, "status": "pending"},
+        sort=[("created_at", -1)]
+    )
+
+def save_pending_order(user_id: int, link_id: str, plan_id: str, credits: int, short_url: str = "", expire_at: datetime = None):
     db = get_db()
     db.orders.update_one(
         {"link_id": link_id},
@@ -155,19 +156,23 @@ def save_pending_order(user_id: int, link_id: str, plan_id: str, credits: int, s
             "short_url":  short_url,
             "status":     "pending",
             "created_at": datetime.now(timezone.utc),
+            "expire_at":  expire_at,
         }},
         upsert=True
     )
 
-def get_order_short_url(link_id: str) -> str:
-    db  = get_db()
-    doc = db.orders.find_one({"link_id": link_id}, {"short_url": 1, "_id": 0})
-    return (doc or {}).get("short_url", "")
-
-def fulfill_order(link_id: str, payment_id: str) -> dict | None:
-    db  = get_db()
-    doc = db.orders.find_one_and_update(
+def mark_order_expired(link_id: str):
+    db = get_db()
+    db.orders.update_one(
         {"link_id": link_id, "status": "pending"},
+        {"$set": {"status": "expired", "expired_at": datetime.now(timezone.utc)}}
+    )
+
+def fulfill_order(link_id: str, payment_id: str, user_id: int) -> dict | None:
+    db  = get_db()
+    # user_id check prevents another user from claiming someone else's order
+    doc = db.orders.find_one_and_update(
+        {"link_id": link_id, "status": "pending", "user_id": user_id},
         {"$set": {"status": "paid", "payment_id": payment_id, "paid_at": datetime.now(timezone.utc)}},
         return_document=True
     )
@@ -177,7 +182,157 @@ def fulfill_order(link_id: str, payment_id: str) -> dict | None:
             {"$inc": {"credits": doc["credits"]}}
         )
     return doc
-# ─────────────────────────────────────────────────────────────────────────────
+
+def cleanup_expired_orders():
+    """Mark orders as expired if they're past their expire_at time, and delete very old ones."""
+    db = get_db()
+    now = datetime.now(timezone.utc)
+    
+    # Mark expired orders
+    result = db.orders.update_many(
+        {
+            "status": "pending",
+            "expire_at": {"$lt": now}
+        },
+        {"$set": {"status": "expired", "expired_at": now}}
+    )
+    
+    # Delete orders expired more than 30 days ago
+    delete_cutoff = now - timedelta(days=30)
+    deleted = db.orders.delete_many({
+        "status": "expired",
+        "expired_at": {"$lt": delete_cutoff}
+    })
+    
+    if deleted.deleted_count > 0:
+        print(f"[Cleanup] Deleted {deleted.deleted_count} old expired orders")
+    
+    return result.modified_count
+
+def increment_verify_attempts(link_id: str) -> int:
+    """Increment and return verification attempt count for an order."""
+    db = get_db()
+    result = db.orders.find_one_and_update(
+        {"link_id": link_id},
+        {"$inc": {"verify_attempts": 1}},
+        return_document=True
+    )
+    return result.get("verify_attempts", 0) if result else 0
+
+def get_verify_attempts(link_id: str) -> int:
+    """Get current verification attempt count."""
+    db = get_db()
+    doc = db.orders.find_one({"link_id": link_id}, {"verify_attempts": 1, "_id": 0})
+    return doc.get("verify_attempts", 0) if doc else 0
+
+def get_user_pending_orders(user_id: int) -> list:
+    """Get all pending orders for a user."""
+    db = get_db()
+    return list(db.orders.find(
+        {"user_id": user_id, "status": "pending"},
+        {"_id": 0}
+    ).sort("created_at", -1))
+
+# ── RAZORPAY HELPERS ──────────────────────────────────────────────────────────
+
+def create_razorpay_payment_link(amount_inr_paise: int, receipt: str, description: str) -> dict | None:
+    # Calculate expiry timestamp (24 hours from now)
+    expire_by = int((datetime.now(timezone.utc) + timedelta(hours=PAYMENT_LINK_EXPIRY_HOURS)).timestamp())
+    
+    payload = {
+        "amount":          amount_inr_paise,
+        "currency":        "INR",
+        "description":     description,
+        "reference_id":    receipt,
+        "expire_by":       expire_by,
+        "reminder_enable": False,
+        "notify":          {"sms": False, "email": False},
+    }
+    
+    # Retry logic: try up to 3 times with exponential backoff
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            print(f"[Razorpay] Creating payment link | amount={amount_inr_paise} receipt={receipt} expire_by={expire_by}")
+            resp = requests.post(
+                "https://api.razorpay.com/v1/payment_links",
+                auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET),
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=15
+            )
+            
+            if resp.status_code in (200, 201):
+                data = resp.json()
+                if data.get("short_url"):
+                    # ✅ SANITIZED: Don't log full response (contains sensitive data)
+                    print(f"[Razorpay] Payment link created successfully | link_id={data.get('id')}")
+                    return data
+            else:
+                # ✅ SANITIZED: Log error code but not full response
+                print(f"[Razorpay] Error {resp.status_code}: Payment link creation failed")
+                
+        except requests.exceptions.RequestException as ex:
+            print(f"[Razorpay] Network error (attempt {attempt + 1}/{max_retries}): {type(ex).__name__}")
+            if attempt < max_retries - 1:
+                wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
+                time.sleep(wait_time)
+                continue
+        except Exception as ex:
+            print(f"[Razorpay] Exception: {type(ex).__name__}")
+            break
+    
+    return None
+
+def check_razorpay_link_status(link_id: str) -> dict | None:
+    """Fetch a payment link's current status from Razorpay with retry logic."""
+    max_retries = 2
+    for attempt in range(max_retries):
+        try:
+            resp = requests.get(
+                f"https://api.razorpay.com/v1/payment_links/{link_id}",
+                auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET),
+                timeout=10
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                # ✅ SANITIZED: Log only status, not full response
+                print(f"[Razorpay] Link {link_id} status: {data.get('status')}")
+                return data
+            else:
+                print(f"[Razorpay check_link] Error {resp.status_code}")
+                
+        except requests.exceptions.RequestException as ex:
+            print(f"[Razorpay check_link] Network error (attempt {attempt + 1}/{max_retries}): {type(ex).__name__}")
+            if attempt < max_retries - 1:
+                time.sleep(1)
+                continue
+        except Exception as ex:
+            print(f"[Razorpay check_link] Exception: {type(ex).__name__}")
+            break
+    
+    return None
+
+def razorpay_link_is_usable(link_data: dict) -> bool:
+    """
+    A link is usable if:
+      - status is 'created' (not yet paid, not cancelled/expired)
+      - expire_by is 0 (no expiry) OR expire_by is in the future
+    """
+    if not link_data:
+        return False
+    status    = link_data.get("status", "")
+    expire_by = link_data.get("expire_by", 0)
+    if status != "created":
+        return False
+    if expire_by and expire_by < int(time.time()):
+        return False
+    return True
+
+def get_order_short_url(link_id: str) -> str:
+    db  = get_db()
+    doc = db.orders.find_one({"link_id": link_id}, {"short_url": 1, "_id": 0})
+    return (doc or {}).get("short_url", "")
 
 # ── Load JSON databases ───────────────────────────────────────────────────────
 _DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "database")
@@ -185,7 +340,6 @@ _DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "database")
 with open(os.path.join(_DIR, "bins.json"),    "r", encoding="utf-8") as _f: BIN_DB: dict       = json.load(_f)
 with open(os.path.join(_DIR, "country.json"), "r", encoding="utf-8") as _f: COUNTRY_DATA: dict = json.load(_f)
 with open(os.path.join(_DIR, "names.json"),   "r", encoding="utf-8") as _f: NAMES_DATA: dict   = json.load(_f)
-# ─────────────────────────────────────────────────────────────────────────────
 
 COUNTRY_ALIASES = {
     "al":"Albania","dz":"Algeria","ar":"Argentina","am":"Armenia","au":"Australia",
@@ -278,10 +432,106 @@ class HealthHandler(BaseHTTPRequestHandler):
         self.send_response(200); self.send_header("Content-Type","text/plain"); self.end_headers()
     def log_message(self, format, *args): pass
 
-def run_health_server():
-    HTTPServer(("0.0.0.0", PORT), HealthHandler).serve_forever()
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Razorpay Webhook Handler ──────────────────────────────────────────────────
+class WebhookHandler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        if self.path == "/razorpay_webhook":
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length)
+            signature = self.headers.get('X-Razorpay-Signature', '')
+            
+            # Verify webhook signature
+            if self._verify_signature(body, signature):
+                try:
+                    payload = json.loads(body.decode('utf-8'))
+                    event = payload.get('event', '')
+                    
+                    # Handle payment link paid event
+                    if event == 'payment_link.paid':
+                        entity = payload.get('payload', {}).get('payment_link', {}).get('entity', {})
+                        link_id = entity.get('id')
+                        
+                        # Get payment details
+                        payments = entity.get('payments', [])
+                        if payments and link_id:
+                            payment_id = payments[0].get('payment_id')
+                            
+                            # Find order and fulfill
+                            db = get_db()
+                            order = db.orders.find_one({"link_id": link_id, "status": "pending"})
+                            if order:
+                                user_id = order.get('user_id')
+                                fulfilled = fulfill_order(link_id, payment_id, user_id)
+                                if fulfilled:
+                                    print(f"[Webhook] ✅ Auto-fulfilled order {link_id} for user {user_id}")
+                                    
+                                    # TODO: Send notification to user via Telegram
+                                    # You can add bot.send_message here if needed
+                                else:
+                                    print(f"[Webhook] ⚠️ Order {link_id} already fulfilled")
+                            else:
+                                print(f"[Webhook] ⚠️ No pending order found for {link_id}")
+                    
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"status": "ok"}).encode())
+                    
+                except Exception as e:
+                    print(f"[Webhook] Error processing: {e}")
+                    self.send_response(500)
+                    self.end_headers()
+            else:
+                print(f"[Webhook] ⚠️ Invalid signature")
+                self.send_response(403)
+                self.end_headers()
+        else:
+            self.send_response(404)
+            self.end_headers()
+    
+    def _verify_signature(self, body: bytes, signature: str) -> bool:
+        """Verify Razorpay webhook signature."""
+        if not signature or not RAZORPAY_KEY_SECRET:
+            return False
+        
+        try:
+            expected_signature = hmac.new(
+                RAZORPAY_KEY_SECRET.encode('utf-8'),
+                body,
+                hashlib.sha256
+            ).hexdigest()
+            return hmac.compare_digest(expected_signature, signature)
+        except Exception as e:
+            print(f"[Webhook] Signature verification error: {e}")
+            return False
+    
+    def log_message(self, format, *args): pass
 
+def run_health_server():
+    """Run combined health check and webhook server."""
+    
+    class CombinedHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path in ['/', '/health']:
+                HealthHandler.do_GET(self)
+            else:
+                self.send_response(404)
+                self.end_headers()
+        
+        def do_HEAD(self):
+            HealthHandler.do_HEAD(self)
+        
+        def do_POST(self):
+            WebhookHandler.do_POST(self)
+        
+        def log_message(self, format, *args): pass
+    
+    HTTPServer(("0.0.0.0", PORT), CombinedHandler).serve_forever()
+
+def run_health_server_old():
+    HTTPServer(("0.0.0.0", PORT), HealthHandler).serve_forever()
+
+# ── Keyboards ────────────────────────────────────────────────────────────────
 def main_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(CHANNEL_NAME, url=CHANNEL_URL)],
@@ -289,17 +539,16 @@ def main_keyboard() -> InlineKeyboardMarkup:
     ])
 
 def payment_base_rows() -> list:
-    """Returns the two standard channel/owner button rows for payment messages."""
     return [
         [InlineKeyboardButton(CHANNEL_NAME, url=CHANNEL_URL)],
         [InlineKeyboardButton(OWNER_NAME,   url=OWNER_URL)],
     ]
 
 def payment_keyboard(extra_rows: list = None) -> InlineKeyboardMarkup:
-    """Builds a keyboard with optional action rows + always-present channel/owner rows."""
     rows = list(extra_rows or []) + payment_base_rows()
     return InlineKeyboardMarkup(rows)
 
+# ── Utils ─────────────────────────────────────────────────────────────────────
 def e(t: str) -> str:
     for c in r"\_*[]()~`>#+-=|{}.!":
         t = t.replace(c, "\\" + c)
@@ -309,7 +558,6 @@ def usd_to_paise(usd: float) -> int:
     return int(usd * USD_TO_INR * 100)
 
 async def safe_edit(query, text, parse_mode=None, reply_markup=None):
-    """Edit message text, silently ignoring 'message not modified' errors."""
     try:
         await query.edit_message_text(text, parse_mode=parse_mode, reply_markup=reply_markup)
     except BadRequest as ex:
@@ -377,9 +625,7 @@ async def fetch_bin(bin_number: str) -> dict | None:
         print("[BIN] error:", ex)
     return None
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# ── BROADCAST HELPERS ────────────────────────────────────────────────────────
-
+# ── BROADCAST HELPERS ─────────────────────────────────────────────────────────
 def build_keyboard(buttons: list):
     rows = [[InlineKeyboardButton(b["text"], url=b["url"])] for b in buttons if b.get("text") and b.get("url")]
     return InlineKeyboardMarkup(rows) if rows else None
@@ -423,12 +669,8 @@ async def send_content(bot, chat_id: int, content: dict, keyboard=None) -> bool:
     except Exception:
         return False
 
-# ═══════════════════════════════════════════════════════════════════════════════
 # ── DOT-COMMAND DISPATCHER ────────────────────────────────────────────────────
-# ═══════════════════════════════════════════════════════════════════════════════
-
 async def dot_command_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handles .admin .stats .users .broadcast .credits"""
     if not update.message or not update.message.text:
         return
     if not is_admin(update.effective_user.id):
@@ -442,37 +684,44 @@ async def dot_command_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     chat_id = update.effective_chat.id
 
-    # ── .admin ───────────────────────────────────────────────────────────────
     if cmd == ".admin":
         msg = (
             "🔐 *ADMIN PANEL*\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n\n"
             "📊 *Statistics*\n"
-            "`.stats` — Total user count\n\n"
+            "`.stats` — Bot statistics\n\n"
             "👥 *User Management*\n"
             "`.users` — List all users \\(latest 50\\)\n\n"
             "📢 *Broadcasting*\n"
-            "`.broadcast` — Interactive broadcast wizard\n"
-            "Supports: text, photo, video, APK, audio,\n"
-            "sticker, GIF, voice \\+ *unlimited URL buttons*\n\n"
-            "💰 *Credits*\n"
-            "`.credits <id>` — Check user credits\n\n"
+            "`.broadcast` — Interactive broadcast wizard\n\n"
+            "💰 *Credits \\& Orders*\n"
+            "`.credits <id>` — Check user credits\n"
+            "`.orders <id>` — View user's pending orders\n"
+            "`.cleanup` — Mark expired orders\n\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             f"🆔 *Your ID:* `{update.effective_user.id}`\n"
             "👑 *Role:* Admin"
         )
         await context.bot.send_message(chat_id=chat_id, text=msg, parse_mode="MarkdownV2")
 
-    # ── .stats ───────────────────────────────────────────────────────────────
     elif cmd == ".stats":
         stats = get_stats()
         msg = (
             "📊 *Bot Statistics*\n\n"
-            f"👥 *Total Users:* `{stats['total']}`"
+            f"👥 *Total Users:* `{stats['total']}`\n"
+            f"⏳ *Pending Orders:* `{stats['pending_orders']}`\n"
+            f"✅ *Paid Orders:* `{stats['paid_orders']}`"
         )
         await context.bot.send_message(chat_id=chat_id, text=msg, parse_mode="MarkdownV2")
 
-    # ── .users ───────────────────────────────────────────────────────────────
+    elif cmd == ".cleanup":
+        count = cleanup_expired_orders()
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"🧹 *Cleanup Complete*\n\nMarked `{count}` expired orders\\.",
+            parse_mode="MarkdownV2"
+        )
+
     elif cmd == ".users":
         rows = get_all_users()
         if not rows:
@@ -487,7 +736,6 @@ async def dot_command_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             lines.append(f"`{uid}` — {e(str(name))}")
         await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), parse_mode="MarkdownV2")
 
-    # ── .credits <user_id> ───────────────────────────────────────────────────
     elif cmd.startswith(".credits"):
         parts = cmd.split()
         if len(parts) != 2 or not parts[1].lstrip("-").isdigit():
@@ -506,7 +754,37 @@ async def dot_command_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             parse_mode="MarkdownV2"
         )
 
-    # ── .broadcast ───────────────────────────────────────────────────────────
+    elif cmd.startswith(".orders"):
+        parts = cmd.split()
+        if len(parts) != 2 or not parts[1].lstrip("-").isdigit():
+            await context.bot.send_message(chat_id=chat_id,
+                text="❌ Usage: `.orders <user_id>`", parse_mode="Markdown")
+            return
+        target_id = int(parts[1])
+        orders = get_user_pending_orders(target_id)
+        if not orders:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"✅ No pending orders for user `{target_id}`",
+                parse_mode="MarkdownV2"
+            )
+            return
+        
+        lines = [f"📦 *Pending Orders for User* `{target_id}`:\n"]
+        for o in orders:
+            link_id = o.get("link_id", "N/A")
+            plan_id = o.get("plan_id", "N/A")
+            credits = o.get("credits", 0)
+            created = str(o.get("created_at", "N/A"))[:19]
+            expire = str(o.get("expire_at", "N/A"))[:19]
+            lines.append(
+                f"\\- *Plan:* `{plan_id}` \\| *Credits:* `{credits}`\n"
+                f"  *Link:* `{link_id}`\n"
+                f"  *Created:* `{created}`\n"
+                f"  *Expires:* `{expire}`\n"
+            )
+        await context.bot.send_message(chat_id=chat_id, text="\n".join(lines), parse_mode="MarkdownV2")
+
     elif cmd == ".broadcast":
         context.user_data.clear()
         context.user_data["bc_active"] = True
@@ -523,10 +801,7 @@ async def dot_command_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             parse_mode="MarkdownV2"
         )
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# ── BROADCAST WIZARD FLOW ────────────────────────────────────────────────────
-# ═══════════════════════════════════════════════════════════════════════════════
-
+# ── BROADCAST WIZARD FLOW ─────────────────────────────────────────────────────
 async def broadcast_flow(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message:
         return
@@ -692,10 +967,7 @@ async def broadcast_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
         context.user_data.clear()
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# ── USER COMMANDS ────────────────────────────────────────────────────────────
-# ═══════════════════════════════════════════════════════════════════════════════
-
+# ── USER COMMANDS ─────────────────────────────────────────────────────────────
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user  = update.effective_user
     store_user(user_id=user.id, username=user.username, first_name=user.first_name, last_name=user.last_name)
@@ -817,9 +1089,84 @@ async def addcredit_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "└ 15\\$ → 350 Credits 💎 _Best Value_\n\n"
         "💳 *Payment via Razorpay*\n"
         "_Secure, encrypted \\& instant credit delivery_\n\n"
+        f"⏰ _Payment links expire after {PAYMENT_LINK_EXPIRY_HOURS} hours_\n\n"
         "👇 *Select a plan to get started:*"
     )
     await update.message.reply_text(msg, parse_mode="MarkdownV2", reply_markup=credit_plans_keyboard())
+
+async def _get_or_create_payment_link(user_id: int, plan: dict) -> tuple[str, str, str] | tuple[None, None, None]:
+    """
+    Returns (link_id, short_url, error_code) — either reused from DB or freshly created.
+    Returns (None, None, error_code) on failure.
+    error_code: None (success), "rate_limited", "network_error"
+
+    ✅ IMPROVED: Now checks expiry and creates fresh links when needed
+    """
+    plan_id = plan["id"]
+
+    # ✅ NEW: Check rate limit
+    if check_rate_limit(user_id):
+        print(f"[Order] Rate limit hit for user {user_id}")
+        return None, None, "rate_limited"
+
+    # First, cleanup any expired orders
+    cleanup_expired_orders()
+
+    existing = get_pending_order(user_id, plan_id)
+    if existing and existing.get("link_id"):
+        # Check if order has expired locally
+        expire_at = existing.get("expire_at")
+        if expire_at:
+            # Make timezone-aware comparison safe (handle old naive datetimes)
+            if expire_at.tzinfo is None:
+                expire_at = expire_at.replace(tzinfo=timezone.utc)
+            
+            if expire_at < datetime.now(timezone.utc):
+                print(f"[Order] Local order expired for link {existing['link_id']}")
+                mark_order_expired(existing["link_id"])
+                existing = None
+        
+        if existing:  # Only continue if not expired
+            # Verify with Razorpay whether the link is still alive
+            link_data = check_razorpay_link_status(existing["link_id"])
+            
+            # ✅ FIX: If network error (link_data is None), skip verification and reuse link
+            # Don't create duplicate links due to temporary network issues
+            if link_data is None:
+                print(f"[Order] Cannot verify link status (network error), reusing existing link {existing['link_id']}")
+                return existing["link_id"], existing.get("short_url", ""), None
+            
+            # Check if link is still usable on Razorpay side
+            if razorpay_link_is_usable(link_data):
+                print(f"[Order] Reusing existing link {existing['link_id']} for user {user_id} plan {plan_id}")
+                return existing["link_id"], existing.get("short_url", link_data.get("short_url", "")), None
+            
+            # Only mark as expired if Razorpay confirmed it's cancelled/expired
+            status = link_data.get('status', 'unknown')
+            if status in ('cancelled', 'expired'):
+                print(f"[Order] Link {existing['link_id']} is expired/cancelled (status={status}), creating new")
+                mark_order_expired(existing["link_id"])
+            else:
+                # Link exists but status unclear - reuse it to avoid duplicates
+                print(f"[Order] Link {existing['link_id']} has status={status}, reusing to avoid duplicates")
+                return existing["link_id"], existing.get("short_url", ""), None
+
+    # Create a fresh payment link with a unique receipt (timestamp prevents duplicates)
+    receipt = f"rcpt_{user_id}_{plan_id}_{int(time.time())}"
+    paise   = usd_to_paise(plan["usd"])
+    link    = create_razorpay_payment_link(paise, receipt, f"{plan['credits']} Credits — Danger Bot")
+
+    if not link:
+        return None, None, "network_error"
+
+    link_id   = link["id"]
+    short_url = link["short_url"]
+    expire_by = link.get("expire_by", 0)
+    expire_at = datetime.fromtimestamp(expire_by, tz=timezone.utc) if expire_by else None
+    
+    save_pending_order(user_id, link_id, plan_id, plan["credits"], short_url, expire_at)
+    return link_id, short_url, None
+
 
 async def buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query   = update.callback_query
@@ -842,21 +1189,37 @@ async def buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        receipt    = f"rcpt_{user_id}_{plan_id}"
-        paise      = usd_to_paise(plan["usd"])
         inr_amount = plan["usd"] * USD_TO_INR
 
         await safe_edit(
             query,
-            "⏳ *Creating your secure payment order\\.\\.\\.*\n\n_Please wait a moment\\._",
+            "⏳ *Processing your order\\.\\.\\.*\n\n_Checking for existing orders or creating a new one\\._",
             parse_mode="MarkdownV2",
             reply_markup=payment_keyboard()
         )
 
-        link = create_razorpay_payment_link(paise, receipt, f"{plan['credits']} Credits — Danger Bot")
+        link_id, short_url, error_code = await _get_or_create_payment_link(user_id, plan)
+
+        # ── Rate limited ──────────────────────────────────────────────────────
+        if error_code == "rate_limited":
+            await safe_edit(
+                query,
+                "⚠️ *Too Many Requests*\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"You've created {RATE_LIMIT_LINKS} payment links in the last {RATE_LIMIT_WINDOW_MINUTES} minutes\\.\n\n"
+                "🔸 Please wait a few minutes before trying again\n"
+                "🔸 Check your previous payment links\n"
+                "🔸 Complete existing payments first\n\n"
+                "_This limit prevents accidental duplicate orders\\._",
+                parse_mode="MarkdownV2",
+                reply_markup=payment_keyboard([
+                    [InlineKeyboardButton("⬅️ Back to Plans", callback_data="buy:back")],
+                ])
+            )
+            return
 
         # ── Gateway error ─────────────────────────────────────────────────────
-        if not link:
+        if not link_id:
             await safe_edit(
                 query,
                 "❌ *Payment Service Unavailable*\n"
@@ -873,24 +1236,20 @@ async def buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        link_id   = link["id"]
-        short_url = link["short_url"]
-        save_pending_order(user_id, link_id, plan_id, plan["credits"], short_url)
-
         msg = (
-            "🧾 *Order Created Successfully*\n"
+            "🧾 *Order Ready*\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n\n"
             f"📦 *Plan:*      `{e(plan['label'])}`\n"
             f"💵 *Amount:*   `${plan['usd']} USD`  \\(≈ `₹{inr_amount} INR`\\)\n"
             f"🎁 *Credits:*   `\\+{plan['credits']}`\n"
-            f"🆔 *Order ID:* `{link_id}`\n\n"
+            f"🆔 *Order ID:* `{link_id}`\n"
+            f"⏰ *Expires:*   `{PAYMENT_LINK_EXPIRY_HOURS} hours`\n\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             "📋 *How to pay:*\n"
             "1️⃣ Tap *Pay Now* below\n"
             "2️⃣ Complete payment on Razorpay\n"
             "3️⃣ Return here and tap *I Have Paid*\n\n"
-            "⚡ Credits are delivered *instantly* after verification\\.\n"
-            "_Link expires in 15 minutes\\._"
+            "⚡ Credits are delivered *instantly* after verification\\."
         )
         await safe_edit(
             query,
@@ -905,9 +1264,11 @@ async def buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ── Back to plans ─────────────────────────────────────────────────────────
     elif data == "buy:back":
+        bal = get_credits(user_id)
         msg = (
             "💰 *Buy Credits*\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"👤 *Your Balance:* `{bal} credits`\n\n"
             "📦 *Available Plans:*\n"
             "┌ 3\\$ → 50 Credits\n"
             "├ 5\\$ → 100 Credits\n"
@@ -915,6 +1276,7 @@ async def buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "└ 15\\$ → 350 Credits 💎 _Best Value_\n\n"
             "💳 *Payment via Razorpay*\n"
             "_Secure, encrypted \\& instant credit delivery_\n\n"
+            f"⏰ _Payment links expire after {PAYMENT_LINK_EXPIRY_HOURS} hours_\n\n"
             "👇 *Select a plan to get started:*"
         )
         await safe_edit(query, msg, parse_mode="MarkdownV2", reply_markup=credit_plans_keyboard())
@@ -923,8 +1285,24 @@ async def buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data.startswith("verify:"):
         link_id = data.split(":", 1)[1]
 
-        # Retrieve stored short_url for the Pay Now button fallback
-        short_url = get_order_short_url(link_id)
+        # ✅ NEW: Check verification attempt limit
+        attempts = increment_verify_attempts(link_id)
+        if attempts > MAX_VERIFY_ATTEMPTS:
+            await safe_edit(
+                query,
+                "⚠️ *Too Many Verification Attempts*\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"You've tried to verify this payment {attempts} times\\.\n\n"
+                "🔸 If you completed payment, wait 2\\-3 minutes\n"
+                "🔸 Check your bank statement for confirmation\n"
+                "🔸 Contact owner if payment was deducted\n\n"
+                f"🆔 *Order ID:* `{link_id}`",
+                parse_mode="MarkdownV2",
+                reply_markup=payment_keyboard([
+                    [InlineKeyboardButton("⬅️ Back to Plans", callback_data="buy:back")],
+                ])
+            )
+            return
 
         await safe_edit(
             query,
@@ -934,21 +1312,65 @@ async def buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=payment_keyboard()
         )
 
-        link_status = ""
-        payment_id  = None
-        try:
-            resp        = requests.get(
-                f"https://api.razorpay.com/v1/payment_links/{link_id}",
-                auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET),
-                timeout=10
+        link_data  = check_razorpay_link_status(link_id)
+        
+        # ✅ FIX: Handle network errors gracefully
+        if link_data is None:
+            await safe_edit(
+                query,
+                "⚠️ *Connection Issue*\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                "Unable to verify payment status right now\\.\n"
+                "This is usually a temporary network issue\\.\n\n"
+                "🔸 Check your internet connection\n"
+                "🔸 Wait a few seconds and try again\n"
+                "🔸 Your payment is safe if you completed it\n\n"
+                "_If you completed payment but can't verify,\n"
+                "contact the owner with your Order ID\\._\n\n"
+                f"🆔 *Order ID:* `{link_id}`",
+                parse_mode="MarkdownV2",
+                reply_markup=payment_keyboard([
+                    [InlineKeyboardButton("🔄 Try Verify Again",  callback_data=f"verify:{link_id}")],
+                    [InlineKeyboardButton("⬅️ Back to Plans",    callback_data="buy:back")],
+                ])
             )
-            link_data   = resp.json()
-            link_status = link_data.get("status", "")
-            if link_status == "paid":
-                payments   = link_data.get("payments", [])
-                payment_id = payments[-1].get("payment_id") if payments else None
-        except Exception as ex:
-            print("[Razorpay verify]", ex)
+            return
+        
+        link_status = link_data.get("status", "")
+        short_url   = get_order_short_url(link_id)
+        payment_id  = None
+
+        if link_status == "paid" and link_data:
+            payments   = link_data.get("payments", [])
+            payment_id = payments[-1].get("payment_id") if payments else None
+
+        # ── Link expired on Razorpay side ─────────────────────────────────────
+        if link_status in ("cancelled", "expired"):
+            mark_order_expired(link_id)
+            # Find the plan for this order so user can regenerate
+            db  = get_db()
+            doc = db.orders.find_one({"link_id": link_id}, {"plan_id": 1, "_id": 0})
+            plan_id = doc.get("plan_id", "") if doc else ""
+            retry_row = (
+                [[InlineKeyboardButton("🔄 Generate New Link", callback_data=f"buy:{plan_id}")]]
+                if plan_id else []
+            )
+            await safe_edit(
+                query,
+                "⏰ *Payment Link Expired*\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"📊 *Status:* `{link_status.upper()}`\n\n"
+                "This payment link is no longer valid\\.\n"
+                "Tap below to generate a fresh link for the same plan\\.\n\n"
+                "_Your account has not been charged\\._",
+                parse_mode="MarkdownV2",
+                reply_markup=payment_keyboard(
+                    retry_row + [
+                        [InlineKeyboardButton("⬅️ Back to Plans", callback_data="buy:back")],
+                    ]
+                )
+            )
+            return
 
         # ── Payment not confirmed yet ─────────────────────────────────────────
         if link_status != "paid" or not payment_id:
@@ -978,7 +1400,7 @@ async def buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         # ── Fulfill order ─────────────────────────────────────────────────────
-        doc = fulfill_order(link_id, payment_id)
+        doc = fulfill_order(link_id, payment_id, user_id)
 
         # ── Already processed ─────────────────────────────────────────────────
         if not doc:
@@ -1015,10 +1437,10 @@ async def buy_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ])
         )
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# ── BIN COMMANDS ─────────────────────────────────────────────────────────────
-# ═══════════════════════════════════════════════════════════════════════════════
+# [Rest of the code remains the same - BIN commands, fake identity, CC generator, etc.]
+# I'll include the critical parts but truncate for space
 
+# ── BIN COMMANDS ──────────────────────────────────────────────────────────────
 async def bin_lookup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     usage = "❌ Invalid usage\\!\n\n✅ Usage: `/chkbin 440769`\n📌 Example: `/chkbin 521234`"
     if not context.args:
@@ -1060,10 +1482,7 @@ async def genbin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     bin_number = random.choice(list(pool.keys()))
     await update.message.reply_text(fmt_bin(bin_number, pool[bin_number]), parse_mode="MarkdownV2", reply_markup=main_keyboard())
 
-# ═══════════════════════════════════════════════════════════════════════════════
 # ── FAKE IDENTITY ─────────────────────────────────────────────────────────────
-# ═══════════════════════════════════════════════════════════════════════════════
-
 def fake_country_keyboard(page: int = 0) -> InlineKeyboardMarkup:
     items = _FAKE_PAGES[page]; rows = []; row = []
     for i, (code, _) in enumerate(items):
@@ -1154,10 +1573,7 @@ async def fake_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try: await query.edit_message_text(msg, parse_mode="Markdown", reply_markup=result_kb)
         except: await context.bot.send_message(chat_id=query.message.chat_id, text=msg, parse_mode="Markdown", reply_markup=result_kb)
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# ── CC GENERATOR ─────────────────────────────────────────────────────────────
-# ═══════════════════════════════════════════════════════════════════════════════
-
+# ── CC GENERATOR ──────────────────────────────────────────────────────────────
 def luhn_complete(prefix: str) -> str:
     digits = [int(d) for d in str(prefix)]; digits.append(0); total = 0
     for i, d in enumerate(reversed(digits)):
@@ -1220,18 +1636,16 @@ async def gen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     body = "\n".join("`" + cc + "`" for cc in cards)
     await update.message.reply_text(header + "\n" + body, parse_mode="MarkdownV2", reply_markup=main_keyboard())
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# ── MAIN ─────────────────────────────────────────────────────────────────────
-# ═══════════════════════════════════════════════════════════════════════════════
-
+# ── MAIN ──────────────────────────────────────────────────────────────────────
 def main():
     get_db()
     threading.Thread(target=run_health_server, daemon=True).start()
     print(f"[✓] Health server running on port {PORT}")
+    print(f"[✓] Webhook endpoint: https://telegrambot-cc-generator.onrender.com/razorpay_webhook")
+    print(f"[✓] Rate limiting: {RATE_LIMIT_LINKS} links per {RATE_LIMIT_WINDOW_MINUTES} minutes")
 
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    # User commands
     app.add_handler(CommandHandler("start",      start))
     app.add_handler(CommandHandler("help",       help_cmd))
     app.add_handler(CommandHandler("info",       info_cmd))
@@ -1242,23 +1656,15 @@ def main():
     app.add_handler(CommandHandler("fake",       fake))
     app.add_handler(CommandHandler("gen",        gen))
 
-    # Fake country picker callbacks
     app.add_handler(CallbackQueryHandler(fake_callback,      pattern="^fake"))
-
-    # Broadcast inline button callbacks
     app.add_handler(CallbackQueryHandler(broadcast_callback, pattern="^bc_confirm:"))
-
-    # Credit purchase callbacks
     app.add_handler(CallbackQueryHandler(buy_callback,       pattern="^buy:"))
     app.add_handler(CallbackQueryHandler(buy_callback,       pattern="^verify:"))
 
-    # Dot-command dispatcher (.admin .stats .users .broadcast .credits)
     app.add_handler(MessageHandler(
-        filters.TEXT & filters.Regex(r"^\.(admin|stats|users|broadcast|credits)(\s.*)?$"),
+        filters.TEXT & filters.Regex(r"^\.(admin|stats|users|broadcast|credits|orders|cleanup)(\s.*)?$"),
         dot_command_handler
     ))
-
-    # Broadcast flow — handles content + button text/url steps
     app.add_handler(MessageHandler(
         filters.ALL & ~filters.COMMAND,
         broadcast_flow
