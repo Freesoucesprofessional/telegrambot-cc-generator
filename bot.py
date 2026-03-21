@@ -48,7 +48,7 @@ CREDIT_PLANS = [
 
 # ── CONFIG ───────────────────────────────────────────────────────────────────
 CHANNEL_URL  = "https://t.me/danger_boy_op1"
-OWNER_URL    = "https://t.me/danger_boy_op"
+OWNER_URL    = "https://t.me/danger_bhai_official_bot?start=auto"
 CHANNEL_NAME = "𒆜ﮩ٨ـﮩ٨ـ𝐉𝐎𝐈𝐍 𝐂𝐇𝐀𝐍𝐍𝐄𝐋ﮩ٨ـﮩ٨ـ𒆜"
 OWNER_NAME   = "𒆜ﮩ٨ـﮩ٨ـ𝐂𝐎𝐍𝐓𝐀𝐂𝐓 𝐎𝐖𝐍𝐄𝐑ﮩ٨ـﮩ٨ـ𒆜"
 
